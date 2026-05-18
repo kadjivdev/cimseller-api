@@ -1,0 +1,19 @@
+# Environment
+.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# Prisma
+prisma/migrations
+
+# Generated files
+generated/
+
+# Logs
+storage/logs/*
+*.log
+
+# Test files
+dbTest.js
