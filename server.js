@@ -9,6 +9,9 @@ import userRoutes from './routes/api/users.js';
 import authRoutes from './routes/api/auth.js';
 import roleRoutes from './routes/api/roles.js';
 import permissionRoutes from "./routes/api/permissions.js";
+import commandeRoutes from "./routes/api/commandes.js"
+import fournisseurRoutes from "./routes/api/fournisseurs.js"
+import produitRoutes from "./routes/api/produits.js"
 
 // env configuration
 dotenv.config();
@@ -20,9 +23,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(router);
 
+// static files
+app.use('/public/uploads', express.static('uploads'));
+
 app.get('/', (req, res) => {
   res.end('Bienvenue sur l\'API de Cimseller');
 });
+
+// tools
+app.use('/api/fournisseurs', fournisseurRoutes);
+app.use('/api/produits', produitRoutes);
 
 // user's routes
 app.use('/api/auth', authRoutes);
@@ -31,6 +41,9 @@ app.use('/api/users', userRoutes);
 // authorization'routes
 app.use('/api/roles', roleRoutes);
 app.use('/api/permissions', permissionRoutes);
+
+// commande's routes
+app.use("/api/commandes", commandeRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

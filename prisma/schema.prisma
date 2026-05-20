@@ -52,7 +52,7 @@ model User {
 
 model RefreshToken {
   id        Int      @id @default(autoincrement())
-  token     String   
+  token     String
   userId    Int
   expiresAt DateTime
 
@@ -97,9 +97,9 @@ model Permission {
 
 model Commande {
   id            Int       @id @default(autoincrement())
-  code          String    @unique
+  code          String?
   date          DateTime
-  montant       Float
+  montant       Float?
   validatedAt   DateTime?
   statutId      Int?
   typeId        Int?
@@ -114,7 +114,7 @@ model Commande {
   // relations
   statut          StatutCommande?   @relation(fields: [statutId], references: [id])
   type            TypeCommande?     @relation(fields: [typeId], references: [id])
-  fournisseur     Fournisseurs?     @relation(fields: [fournisseurId], references: [id])
+  fournisseur     Fournisseur?      @relation(fields: [fournisseurId], references: [id])
   createdBy       User?             @relation("CommandeCreatedBy", fields: [createdById], references: [id])
   validatedBy     User?             @relation("CommandeValidatedBy", fields: [validatedById], references: [id])
   commandeDetails CommandeDetail[]
@@ -126,12 +126,12 @@ model Commande {
 }
 
 model CommandeDetail {
-  id          Int   @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   commandeId  Int
-  productId   Int
-  qteCommande Int
-  unitePrice  Float
-  remise      Float
+  productId   Int?
+  qteCommande Int?
+  unitePrice  Float?
+  remise      Float?
   createdById Int?
 
   deletedAt DateTime?
@@ -139,9 +139,9 @@ model CommandeDetail {
   updatedAt DateTime  @updatedAt
 
   // relations
-  commande  Commande    @relation(fields: [commandeId], references: [id])
-  product   TypeProduit @relation(fields: [productId], references: [id])
-  createdBy User?       @relation("CommandeDetailCreatedBy", fields: [createdById], references: [id])
+  commande  Commande     @relation(fields: [commandeId], references: [id])
+  product   TypeProduit? @relation(fields: [productId], references: [id])
+  createdBy User?        @relation("CommandeDetailCreatedBy", fields: [createdById], references: [id])
 
   @@map("commande_details")
 }
@@ -504,11 +504,11 @@ model RolePermission {
 /**
  * Les entités à migrer après
  */
-model Fournisseurs {
+model Fournisseur {
   id             Int     @id @default(autoincrement())
-  sigle          String  @unique
-  raison_sociale String?
-  phone          String?
+  sigle          String?
+  raison_sociale String? @unique
+  phone          String? @unique
   email          String? @unique
   adresse        String?
 
