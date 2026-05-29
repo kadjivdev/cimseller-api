@@ -1,7 +1,7 @@
-import logger from '../config/logger.js';
-import prisma from '../config/prisma.js';
+import logger from '../../config/logger.js';
+import prisma from '../../config/prisma.js';
 import bcrypt from 'bcrypt';
-import { commandeValidation, commandeDetailValidation } from '../database/validations/commandeValidation.js';
+import { commandeValidation, commandeDetailValidation } from '../../database/validations/commande/commandeValidation.js';
 
 // Get all commandes from the database and log them
 const getCommandes = async (req, res) => {
@@ -14,7 +14,10 @@ const getCommandes = async (req, res) => {
             include: {
                 //  relations
                 commandeDetails: true,
-                commandeRecus: true,
+                commandeRecus: {
+                    where: { deletedAt: null }
+                },
+                programmations: true,
                 commandeAccuses: true,
                 statut: true,
                 type: true,
@@ -85,7 +88,7 @@ const createCommande = async (req, res) => {
                     ...resultCommande.data,
                     createdById: user?.id,
                     commandeDetails: {
-                        create: {}//juste initier le row
+                        create: {}//initiation du detail
                     }
                 },
             });
@@ -207,9 +210,27 @@ const validateCommande = async (req, res) => {
 
         try {
             let commandeFound = await tx.commande.findUnique({
-                where: { id: parseInt(id), deletedAt: null }
+                where: { id: parseInt(id), deletedAt: null },
+                include: { commandeRecus: true }
             });
+
+
             if (!commandeFound) return res.status(404).json({ error: 'Commande non trouvée' });
+
+
+            const recuCommandMontant = (commandeFound.commandeRecus ?? [])
+                .filter((c) => !c.deletedAt)//non suprimés
+                .reduce((total, c) => total + c.montant, 0);
+
+            if (commandeFound.montant != null &&
+                recuCommandMontant < commandeFound.montant
+            ) {
+                return res.status(400).json({
+                    error: 'Le montant total des reçus est insuffisant pour valider la commande',
+                    montantCommande: commandeFound.montant,
+                    montantRecus: recuCommandMontant,
+                });
+            }
 
             if (commandeFound.validatedAt) return res.status(409).json({ error: "Cette commande est déjà validée" })
 

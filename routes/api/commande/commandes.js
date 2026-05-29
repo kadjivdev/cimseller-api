@@ -1,7 +1,6 @@
-// import express from 'express';
 import { Router } from 'express';
-import { getCommandes, createCommande, updateCommande, validateCommande, deleteCommande } from '../../controllers/commandeController.js';
-import jwtAuth from '../../middlewares/jwtAuth.js';
+import { getCommandes, createCommande, updateCommande, validateCommande, deleteCommande } from '../../../controllers/commande/commandeController.js';
+import jwtAuth from '../../../middlewares/jwtAuth.js';
 
 const router = Router();
 

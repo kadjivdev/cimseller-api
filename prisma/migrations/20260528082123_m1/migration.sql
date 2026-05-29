@@ -1,19 +1,73 @@
 -- CreateTable
+CREATE TABLE `users` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `fullname` VARCHAR(191) NOT NULL,
+    `email` VARCHAR(191) NOT NULL,
+    `password` VARCHAR(191) NOT NULL,
+    `roleId` INTEGER NULL,
+    `deletedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `users_email_key`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `refresh_tokens` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `token` VARCHAR(191) NOT NULL,
+    `userId` INTEGER NOT NULL,
+    `expiresAt` DATETIME(3) NOT NULL,
+    `deletedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `roles` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `roles_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `permissions` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `permissions_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `commandes` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `code` VARCHAR(191) NOT NULL,
+    `code` VARCHAR(191) NULL,
     `date` DATETIME(3) NOT NULL,
-    `montant` DOUBLE NOT NULL,
+    `montant` DOUBLE NULL,
     `validatedAt` DATETIME(3) NULL,
     `statutId` INTEGER NULL,
     `typeId` INTEGER NULL,
     `fournisseurId` INTEGER NULL,
     `createdById` INTEGER NULL,
     `validatedById` INTEGER NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `commandes_code_key`(`code`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -21,11 +75,12 @@ CREATE TABLE `commandes` (
 CREATE TABLE `commande_details` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `commandeId` INTEGER NOT NULL,
-    `productId` INTEGER NOT NULL,
-    `qteCommande` INTEGER NOT NULL,
-    `unitePrice` DOUBLE NOT NULL,
-    `remise` DOUBLE NOT NULL,
+    `productId` INTEGER NULL,
+    `qteCommande` INTEGER NULL,
+    `unitePrice` DOUBLE NULL,
+    `remise` DOUBLE NULL,
     `createdById` INTEGER NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -43,9 +98,9 @@ CREATE TABLE `commande_recus` (
     `tonnage` DOUBLE NOT NULL,
     `montant` DOUBLE NOT NULL,
     `preuve` VARCHAR(191) NULL,
-    `typeDetailId` INTEGER NULL,
     `qteRecu` INTEGER NOT NULL,
     `createdById` INTEGER NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -63,6 +118,7 @@ CREATE TABLE `commande_versement_recu` (
     `date` DATETIME(3) NOT NULL,
     `montant` DOUBLE NOT NULL,
     `preuve` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -79,6 +135,7 @@ CREATE TABLE `commande_accuses` (
     `date` DATETIME(3) NOT NULL,
     `preuve` VARCHAR(191) NULL,
     `typeDocumentId` INTEGER NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -100,15 +157,16 @@ CREATE TABLE `programmations` (
     `dateProgrammation` DATETIME(3) NULL,
     `dateLivraison` DATETIME(3) NULL,
     `dateSortie` DATETIME(3) NULL,
+    `qteProgrammer` DOUBLE NULL,
     `qteLivre` DOUBLE NULL,
     `bl` VARCHAR(191) NULL,
     `newBl` VARCHAR(191) NULL,
     `observation` VARCHAR(191) NULL,
-    `tonnage` DOUBLE NOT NULL,
     `validatedAt` DATETIME(3) NULL,
     `preuve` VARCHAR(191) NULL,
     `imprimer` BOOLEAN NOT NULL DEFAULT false,
     `transfert` BOOLEAN NOT NULL DEFAULT false,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -138,6 +196,7 @@ CREATE TABLE `ventes` (
     `observation` VARCHAR(191) NULL,
     `preuve` VARCHAR(191) NULL,
     `reglemented` BOOLEAN NOT NULL DEFAULT false,
+    `deletedAt` DATETIME(3) NULL,
     `validatedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -157,6 +216,7 @@ CREATE TABLE `commande_clients` (
     `montant` DOUBLE NOT NULL,
     `createdById` INTEGER NULL,
     `validatedById` INTEGER NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -176,6 +236,7 @@ CREATE TABLE `vente_comptabilities` (
     `treatedAt` DATETIME(3) NULL,
     `comptabilizedAt` DATETIME(3) NULL,
     `sentToComptabilityAt` DATETIME(3) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -199,6 +260,7 @@ CREATE TABLE `reglements` (
     `comment` VARCHAR(191) NULL,
     `validationComment` VARCHAR(191) NULL,
     `deblocDette` BOOLEAN NOT NULL DEFAULT false,
+    `deletedAt` DATETIME(3) NULL,
     `validatedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -221,6 +283,7 @@ CREATE TABLE `approvisionnements` (
     `preuve` VARCHAR(191) NULL,
     `comment` VARCHAR(191) NULL,
     `validationComment` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `validatedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -240,6 +303,7 @@ CREATE TABLE `demande_modification_ventes` (
     `date` DATETIME(3) NOT NULL,
     `preuve` VARCHAR(191) NULL,
     `modified` BOOLEAN NOT NULL DEFAULT false,
+    `deletedAt` DATETIME(3) NULL,
     `validatedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -259,6 +323,7 @@ CREATE TABLE `demande_suppression_ventes` (
     `date` DATETIME(3) NOT NULL,
     `preuve` VARCHAR(191) NULL,
     `deleted` BOOLEAN NOT NULL DEFAULT false,
+    `deletedAt` DATETIME(3) NULL,
     `validatedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -267,17 +332,29 @@ CREATE TABLE `demande_suppression_ventes` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `role_permissions` (
+    `roleId` INTEGER NOT NULL,
+    `permissionId` INTEGER NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`roleId`, `permissionId`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `fournisseurs` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `sigle` VARCHAR(191) NOT NULL,
+    `sigle` VARCHAR(191) NULL,
     `raison_sociale` VARCHAR(191) NULL,
     `phone` VARCHAR(191) NULL,
     `email` VARCHAR(191) NULL,
     `adresse` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `fournisseurs_sigle_key`(`sigle`),
+    UNIQUE INDEX `fournisseurs_raison_sociale_key`(`raison_sociale`),
+    UNIQUE INDEX `fournisseurs_phone_key`(`phone`),
     UNIQUE INDEX `fournisseurs_email_key`(`email`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -288,6 +365,7 @@ CREATE TABLE `camions` (
     `marqueId` INTEGER NULL,
     `immatriculation` VARCHAR(191) NOT NULL,
     `libelle` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -301,6 +379,7 @@ CREATE TABLE `chauffeurs` (
     `fullname` VARCHAR(191) NOT NULL,
     `permis` VARCHAR(191) NULL,
     `phone` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -315,6 +394,7 @@ CREATE TABLE `avaliseur_programmations` (
     `fullname` VARCHAR(191) NOT NULL,
     `phone` VARCHAR(191) NULL,
     `email` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -336,6 +416,7 @@ CREATE TABLE `clients` (
     `phone` VARCHAR(191) NULL,
     `email` VARCHAR(191) NULL,
     `adresse` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -349,6 +430,7 @@ CREATE TABLE `banques` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -362,6 +444,7 @@ CREATE TABLE `compte_bancaires` (
     `banqueId` INTEGER NULL,
     `numero` VARCHAR(191) NOT NULL,
     `intitule` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -377,6 +460,7 @@ CREATE TABLE `produits` (
     `fournisseurPrice` DOUBLE NULL,
     `typeId` INTEGER NULL,
     `image` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -390,6 +474,7 @@ CREATE TABLE `agents` (
     `nom` VARCHAR(191) NOT NULL,
     `prenom` VARCHAR(191) NOT NULL,
     `phone` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -404,6 +489,7 @@ CREATE TABLE `representants` (
     `prenom` VARCHAR(191) NOT NULL,
     `phone` VARCHAR(191) NULL,
     `email` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -417,6 +503,7 @@ CREATE TABLE `zones` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -429,6 +516,7 @@ CREATE TABLE `statut_commandes` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -441,6 +529,7 @@ CREATE TABLE `type_commandes` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -453,6 +542,7 @@ CREATE TABLE `type_documents` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -465,6 +555,7 @@ CREATE TABLE `type_detail_recu_commandes` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -477,6 +568,7 @@ CREATE TABLE `statut_programmations` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -489,6 +581,7 @@ CREATE TABLE `statut_commande_clients` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -501,6 +594,7 @@ CREATE TABLE `type_commande_clients` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -513,6 +607,7 @@ CREATE TABLE `statut_ventes` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -525,6 +620,7 @@ CREATE TABLE `type_produits` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -537,6 +633,7 @@ CREATE TABLE `statut_clients` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -549,6 +646,7 @@ CREATE TABLE `type_clients` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -561,12 +659,19 @@ CREATE TABLE `marques` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `marques_name_key`(`name`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `users` ADD CONSTRAINT `users_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `roles`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `refresh_tokens` ADD CONSTRAINT `refresh_tokens_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `commandes` ADD CONSTRAINT `commandes_statutId_fkey` FOREIGN KEY (`statutId`) REFERENCES `statut_commandes`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -587,7 +692,7 @@ ALTER TABLE `commandes` ADD CONSTRAINT `commandes_validatedById_fkey` FOREIGN KE
 ALTER TABLE `commande_details` ADD CONSTRAINT `commande_details_commandeId_fkey` FOREIGN KEY (`commandeId`) REFERENCES `commandes`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `commande_details` ADD CONSTRAINT `commande_details_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `type_produits`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `commande_details` ADD CONSTRAINT `commande_details_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `type_produits`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `commande_details` ADD CONSTRAINT `commande_details_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -735,6 +840,12 @@ ALTER TABLE `demande_suppression_ventes` ADD CONSTRAINT `demande_suppression_ven
 
 -- AddForeignKey
 ALTER TABLE `demande_suppression_ventes` ADD CONSTRAINT `demande_suppression_ventes_validatedById_fkey` FOREIGN KEY (`validatedById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `role_permissions` ADD CONSTRAINT `role_permissions_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `role_permissions` ADD CONSTRAINT `role_permissions_permissionId_fkey` FOREIGN KEY (`permissionId`) REFERENCES `permissions`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `camions` ADD CONSTRAINT `camions_marqueId_fkey` FOREIGN KEY (`marqueId`) REFERENCES `marques`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

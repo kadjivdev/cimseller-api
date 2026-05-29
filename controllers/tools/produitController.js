@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import prisma from '../../config/prisma.js';
-import { produitValidation } from '../../database/validations/produitValidation.js';
+import { produitValidation } from '../../database/validations/tools/produitValidation.js';
 
 const UPLOADS_DIR = path.join(
     path.dirname(fileURLToPath(import.meta.url)),

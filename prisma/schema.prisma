@@ -147,18 +147,17 @@ model CommandeDetail {
 }
 
 model CommandeRecu {
-  id           Int      @id @default(autoincrement())
-  commandeId   Int
-  code         String?
-  reference    String?
-  libelle      String?
-  date         DateTime
-  tonnage      Float
-  montant      Float
-  preuve       String?
-  typeDetailId Int?
-  qteRecu      Int
-  createdById  Int?
+  id          Int      @id @default(autoincrement())
+  commandeId  Int
+  code        String?
+  reference   String?
+  libelle     String?
+  date        DateTime
+  tonnage     Float
+  montant     Float
+  preuve      String?
+  qteRecu     Int
+  createdById Int?
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -230,11 +229,11 @@ model Programmation {
   dateProgrammation DateTime?
   dateLivraison     DateTime?
   dateSortie        DateTime?
+  qteProgrammer     Float?
   qteLivre          Float?
   bl                String?
   newBl             String?
   observation       String?
-  tonnage           Float
   validatedAt       DateTime?
   preuve            String?
   imprimer          Boolean   @default(false)
@@ -272,8 +271,8 @@ model Vente {
 
   code        String   @unique
   date        DateTime
-  montant     Float
-  unitePrice  Float
+  montant     Float?
+  unitePrice  Float?
   qteTotal    Float?
   remise      Float?
   transport   Float?
@@ -291,7 +290,7 @@ model Vente {
   commandeClient            CommandeClient?            @relation(fields: [commandClientId], references: [id])
   client                    Client?                    @relation(fields: [clientId], references: [id])
   createdBy                 User?                      @relation("VenteCreatedBy", fields: [createdById], references: [id])
-  validedBy                 User?                      @relation("VenteValidatedBy", fields: [validatedById], references: [id])
+  validatedBy               User?                      @relation("VenteValidatedBy", fields: [validatedById], references: [id])
   produit                   Produit?                   @relation(fields: [produitId], references: [id])
   statut                    StatutVente?               @relation(fields: [statutId], references: [id])
   type                      TypeCommandeClient?        @relation(fields: [typeId], references: [id])
@@ -318,9 +317,10 @@ model CommandeClient {
   createdById   Int?
   validatedById Int?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt   DateTime?
+  validatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // relations
   statut      StatutCommandeClient? @relation(fields: [statutId], references: [id])

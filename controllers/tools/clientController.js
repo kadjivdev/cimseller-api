@@ -1,0 +1,214 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import prisma from '../../config/prisma.js';
+import { clientValidation } from '../../database/validations/tools/clientValidation.js';
+
+const UPLOADS_DIR = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..", "..", "public", "uploads"
+)
+
+const ALLOWED_IMAGE_TYPES = [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+];
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+
+function validateImageFile(file, { required }) {
+    if (!file) {
+        return required
+            ? { ok: false, error: "L'image est requise" }
+            : { ok: true };
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        return { ok: false, error: 'Format image invalide' };
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+        return { ok: false, error: 'Image trop volumineuse' };
+    }
+    return { ok: true };
+}
+
+async function deleteProfil(filename) {
+    if (!filename) return;
+    try {
+        console.log("path du fichier à supprimer:", path.join(UPLOADS_DIR, filename))
+
+        await fs.promises.unlink(path.join(UPLOADS_DIR, filename));
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            console.error('Failed to delete profil file:', err);
+        }
+    }
+}
+
+const toImageUrl = (filename) =>
+    filename ? `${process.env.BASE_URL}/public/uploads/${filename}` : null;
+
+const formatClient = (client) => ({
+    ...client,
+    profil: toImageUrl(client.profil),
+});
+
+const getClients = async (req, res) => {
+    try {
+        const clients = await prisma.client.findMany({
+            where: { deletedAt: null },
+            orderBy: { id: 'desc' },
+            include: {
+                zone: true,
+                type: true,
+                statut: true
+            }
+        });
+
+        res.json(clients.map(formatClient));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch clients' });
+    }
+};
+
+const createClient = async (req, res) => {
+    console.log("Req body : ", req.body)
+    try {
+        // validation du profil
+        const imageCheck = validateImageFile(req.file, { required: false });
+        if (!imageCheck.ok) {
+            return res.status(400).json({ error: imageCheck.error });
+        }
+
+        const result = clientValidation.safeParse({
+            ...req.body,
+            profil: req.file?.filename
+        });
+
+        if (!result.success) {
+            return res.status(400).json({
+                errors: result.error.format(),
+            });
+        }
+
+        // phone
+        if (result.data?.phone) {
+            const existing = await prisma.client.findFirst({
+                where: { phone: result.data.phone },
+            });
+
+            if (existing) {
+                return res.status(409).json({ error: 'Ce phone existe déjà' });
+            }
+        }
+
+        // email
+        if (result.data?.email) {
+            const existing = await prisma.client.findFirst({
+                where: { email: result.data.email },
+            });
+
+            if (existing) {
+                return res.status(409).json({ error: 'Cet email existe déjà' });
+            }
+        }
+
+        const newClient = await prisma.client.create({
+            data: { ...result.data },
+        });
+
+        res.status(201).json(newClient);
+    } catch (error) {
+        console.error('Failed to create client:', error);
+        res.status(500).json({ error: error.message || 'Failed to create client' });
+    }
+};
+
+const updateClient = async (req, res) => {
+    let { id } = req.params;
+
+    try {
+        let clientFound = await prisma.client.findUnique({ where: { id: parseInt(id) } })
+        if (!clientFound) return res.status(404).json({ error: "Ce client n'existe pas!" })
+
+        const imageCheck = validateImageFile(req.file, { required: false });
+        if (!imageCheck.ok) {
+            return res.status(400).json({ error: imageCheck.error });
+        }
+
+        const result = clientValidation.safeParse({
+            ...clientFound,
+            ...req.body,
+            ...(req.file && { profil: req.file?.filename })
+        });
+
+        if (!result.success) {
+            return res.status(400).json({
+                errors: result.error.format(),
+            });
+        }
+
+        // phone
+        if (result.data?.phone) {
+            const existing = await prisma.client.findFirst({
+                where: { phone: result.data?.phone, NOT: { id: parseInt(id) } },
+            });
+
+            if (existing) {
+                return res.status(409).json({ error: 'Ce phone existe déjà' });
+            }
+        }
+
+        // email
+        if (result.data?.email) {
+            const existing = await prisma.client.findFirst({
+                where: { email: result.data.email, NOT: { id: parseInt(id) } },
+            });
+
+            if (existing) {
+                return res.status(409).json({ error: 'Cet email existe déjà' });
+            }
+        }
+
+        const updatedClient = await prisma.client.update({
+            where: { id: parseInt(id) },
+            data: { ...result.data },
+        });
+
+        res.json(updatedClient);
+    } catch (error) {
+        console.error('Failed to update client:', error);
+        res.status(500).json({ error: error.message || 'Failed to update client' });
+    }
+};
+
+const deleteClient = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const clientFound = await prisma.client.findUnique({
+            where: { id: parseInt(id), deletedAt: null },
+        });
+
+        if (!clientFound) {
+            return res.status(404).json({ error: 'Client non trouvé' });
+        }
+
+        await prisma.client.update({
+            where: { id: parseInt(id) },
+            data: { deletedAt: new Date() },
+        });
+
+        // suppression du profil du client
+        await deleteProfil(clientFound.profil)
+
+        res.status(200).json({ message: 'Client supprimé avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete client:', error);
+        res.status(500).json({ error: 'Erreure de suppresion de la client' });
+    }
+};
+
+export { getClients, createClient, updateClient, deleteClient };
