@@ -181,14 +181,15 @@ CREATE TABLE `ventes` (
     `statutId` INTEGER NULL,
     `produitId` INTEGER NULL,
     `typeId` INTEGER NULL,
+    `typeFactureVenteId` INTEGER NULL,
     `clientId` INTEGER NULL,
     `treatedById` INTEGER NULL,
     `createdById` INTEGER NULL,
     `validatedById` INTEGER NULL,
     `code` VARCHAR(191) NOT NULL,
     `date` DATETIME(3) NOT NULL,
-    `montant` DOUBLE NOT NULL,
-    `unitePrice` DOUBLE NOT NULL,
+    `montant` DOUBLE NULL,
+    `unitePrice` DOUBLE NULL,
     `qteTotal` DOUBLE NULL,
     `remise` DOUBLE NULL,
     `transport` DOUBLE NULL,
@@ -217,6 +218,7 @@ CREATE TABLE `commande_clients` (
     `createdById` INTEGER NULL,
     `validatedById` INTEGER NULL,
     `deletedAt` DATETIME(3) NULL,
+    `validatedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -240,6 +242,7 @@ CREATE TABLE `vente_comptabilities` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    UNIQUE INDEX `vente_comptabilities_venteId_key`(`venteId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -564,6 +567,19 @@ CREATE TABLE `type_detail_recu_commandes` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `type_factures_vente` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `deletedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `type_factures_vente_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `statut_programmations` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
@@ -764,6 +780,9 @@ ALTER TABLE `ventes` ADD CONSTRAINT `ventes_statutId_fkey` FOREIGN KEY (`statutI
 ALTER TABLE `ventes` ADD CONSTRAINT `ventes_typeId_fkey` FOREIGN KEY (`typeId`) REFERENCES `type_commande_clients`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `ventes` ADD CONSTRAINT `ventes_typeFactureVenteId_fkey` FOREIGN KEY (`typeFactureVenteId`) REFERENCES `type_factures_vente`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `ventes` ADD CONSTRAINT `ventes_treatedById_fkey` FOREIGN KEY (`treatedById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -783,6 +802,9 @@ ALTER TABLE `commande_clients` ADD CONSTRAINT `commande_clients_validatedById_fk
 
 -- AddForeignKey
 ALTER TABLE `vente_comptabilities` ADD CONSTRAINT `vente_comptabilities_venteId_fkey` FOREIGN KEY (`venteId`) REFERENCES `ventes`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `vente_comptabilities` ADD CONSTRAINT `vente_comptabilities_senderToComptability_fkey` FOREIGN KEY (`senderToComptability`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `reglements` ADD CONSTRAINT `reglements_venteId_fkey` FOREIGN KEY (`venteId`) REFERENCES `ventes`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

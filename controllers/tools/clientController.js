@@ -55,6 +55,7 @@ const formatClient = (client) => ({
 });
 
 const getClients = async (req, res) => {
+    console.log("Getting clients")
     try {
         const clients = await prisma.client.findMany({
             where: { deletedAt: null },
@@ -96,7 +97,7 @@ const createClient = async (req, res) => {
         // phone
         if (result.data?.phone) {
             const existing = await prisma.client.findFirst({
-                where: { phone: result.data.phone },
+                where: { phone: result.data.phone,deletedAt:null },
             });
 
             if (existing) {
@@ -107,7 +108,7 @@ const createClient = async (req, res) => {
         // email
         if (result.data?.email) {
             const existing = await prisma.client.findFirst({
-                where: { email: result.data.email },
+                where: { email: result.data.email,deletedAt:null },
             });
 
             if (existing) {

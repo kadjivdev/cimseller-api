@@ -1,7 +1,58 @@
 import logger from '../../config/logger.js';
 import prisma from '../../config/prisma.js';
 import bcrypt from 'bcrypt';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { venteValidation } from '../../database/validations/vente/venteValidation.js';
+
+const UPLOADS_DIR = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..', '..', 'public', 'uploads'
+);
+
+const toImageUrl = (filename) =>
+    filename ? `${process.env.BASE_URL}/public/uploads/${filename}` : null;
+
+const formatVente = (vente) => ({
+    ...vente,
+    preuve: toImageUrl(vente.preuve),
+});
+
+const ALLOWED_IMAGE_TYPES = [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+];
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+function validateImageFile(file, { required }) {
+    if (!file) {
+        return required ? { ok: false, error: 'Image is required' }
+            : { ok: true };
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        return { ok: false, error: 'Invalid image type' };
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+        return { ok: false, error: 'Image size exceeds limit' };
+    }
+
+    return { ok: true };
+}
+
+// suppression de la preuve
+async function deleteImageFile(filename) {
+    if (filename) {
+        const imagePath = path.join(UPLOADS_DIR, filename);
+        await fs.promises.unlink(imagePath).catch((err) => {
+            console.error('Failed to delete image:', err);
+        });
+    }
+}
 
 // Get all ventes from the database and log them
 const getVentes = async (req, res) => {
@@ -18,12 +69,31 @@ const getVentes = async (req, res) => {
                 produit: true,
                 statut: true,
                 type: true,
+                typeFactureVente: true,
                 reglements: true,
-                venteComptabilities: true,
+                venteComptability: true,
                 reglements: true,
-                treatedBy: true,
-                createdBy: true,
-                validatedBy: true
+                treatedBy: {
+                    select: {
+                        fullname: true,
+                        email: true,
+                        createdAt: true
+                    }
+                },
+                createdBy: {
+                    select: {
+                        fullname: true,
+                        email: true,
+                        createdAt: true
+                    }
+                },
+                validatedBy: {
+                    select: {
+                        fullname: true,
+                        email: true,
+                        createdAt: true
+                    }
+                }
             }
         });
 
@@ -43,6 +113,12 @@ const createVente = async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
         try {
+            // validation de l'image
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
+            }
+
             // validation
             const last = await tx.vente.findFirst({
                 orderBy: { id: 'desc' },
@@ -102,6 +178,17 @@ const createVente = async (req, res) => {
                 }
             }
 
+            // traitement du type de facture
+            if (resultVente.data?.typeFactureVenteId) {
+                let typeFactureVente = await tx.typeFactureVente.findFirst({
+                    where: { id: resultVente.data?.typeFactureVenteId }
+                });
+
+                if (!typeFactureVente) {
+                    return res.status(404).json({ error: 'Ce type de facture de vente n\'existe pas' });
+                }
+            }
+
             // traitement du client
             if (resultVente.data?.clientId) {
                 let client = await tx.client.findFirst({
@@ -113,12 +200,45 @@ const createVente = async (req, res) => {
                 }
             }
 
+            /**Attachement de bon de commande client */
+            let commandeClient = null;
+            if (resultVente.data?.commandClientId) {
+                commandeClient = await tx.commandeClient.findFirst({
+                    where: { id: resultVente.data?.commandClientId }
+                });
+            }
+
+            if (!commandeClient) {
+                // on le crée seulement si le clientId est présent dans la requête, pour éviter de créer des commandes clients sans client associé
+                const last = await tx.commandeClient.findFirst({
+                    orderBy: { id: 'desc' },
+                    select: { id: true }
+                });
+
+                commandeClient = await tx.commandeClient.create({
+                    data: {
+                        code: `CMD-00${last?.id ? (last?.id + 1) : 1}`,
+                        clientId: resultVente.data?.clientId,
+                        validatedById: user?.id,
+                        validatedAt: new Date(),
+                        date: new Date(),
+                        montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
+                        typeCommandeClientId: resultVente.data?.typeId,
+                    }
+                });
+            }
+            
+            console.log("commandeClient :", commandeClient)
+
             // insertion de la vente
             const newVente = await tx.vente.create({
                 data: {
                     ...resultVente.data,
+                    commandClientId: commandeClient?.id,
+                    montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
                     createdById: user?.id,
-                    statutId: resultVente.data?.statutId || 1
+                    statutId: resultVente.data?.statutId || 1,
+                    preuve: req.file ? req.file.filename : null
                 },
             });
 
@@ -139,6 +259,11 @@ const updateVente = async (req, res) => {
     let { id } = req.params
 
     await prisma.$transaction(async (tx) => {
+        const imageCheck = validateImageFile(req.file, { required: false });
+        if (!imageCheck.ok) {
+            return res.status(400).json({ error: imageCheck.error });
+        }
+
         try {
             // found
             const venteFound = await tx.vente.findFirst({
@@ -205,6 +330,13 @@ const updateVente = async (req, res) => {
                 }
             }
 
+            // traitement du type de facture
+            if (resultVente.data?.typeFactureVenteId) {
+                let typeFactureVente = await tx.typeFactureVente.findFirst({
+                    where: { id: resultVente.data?.typeFactureVenteId }
+                })
+            };
+
             // traitement du client
             if (resultVente.data?.clientId) {
                 let client = await tx.client.findFirst({
@@ -221,6 +353,15 @@ const updateVente = async (req, res) => {
                 where: { id: parseInt(id) },
                 data: {
                     ...resultVente.data,
+                    montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
+                    preuve: req.file ? req.file.filename : venteFound.preuve,
+                    commandeClient:{
+                        update: {
+                            montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
+                            typeCommandeClientId: resultVente.data?.typeId,
+                            clientId: resultVente.data?.clientId
+                        }
+                    }
                 },
             });
 
@@ -284,6 +425,10 @@ const deleteVente = async (req, res) => {
                     deletedAt: new Date(),
                 }
             });
+
+            // suppression de la preuve
+            await deleteImageFile(venteFound.preuve);
+
             res.status(200).json({ message: 'Vente supprimée avec succès!' });
         } catch (error) {
             console.error('Failed to delete vente:', error);

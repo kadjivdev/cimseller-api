@@ -33,6 +33,13 @@ const venteValidation = z.object({
         })
         .optional(),
 
+    typeFactureVenteId: z
+        .int({
+            required_error: "Ce champ est réquis",
+            invalid_type_error: "Ce champ doit être un entier"
+        })
+        .optional(),
+
     clientId: z
         .int({
             required_error: "Ce champ est réquis",
@@ -43,7 +50,12 @@ const venteValidation = z.object({
     date: z.coerce.date({
         invalid_type_error: "Ce champ doit être une date",
         required_error: "La date est requise"
-    }),
+    }).refine(
+        (date) => date <= new Date(),
+        {
+            message: "La date doit être antérieure ou égale à aujourd'hui",
+        }
+    ),
 
     montant: z
         .number({
@@ -77,7 +89,7 @@ const venteValidation = z.object({
         }).optional(),
 
     destination: z
-        .number({
+        .string({
             required_error: "Ce champ est réquis",
             invalid_type_error: "Ce champ doit être de format numérique"
         }).optional(),

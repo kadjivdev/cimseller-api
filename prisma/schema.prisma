@@ -45,7 +45,8 @@ model User {
   demandeSuppressionVentesCreatedBy    DemandeSuppressionVente[]  @relation("DemandeSuppressionVenteCreatedBy")
   demandeSuppressionVentesValidatedBy  DemandeSuppressionVente[]  @relation("DemandeSuppressionVenteValidatedBy")
 
-  refreshTokens RefreshToken[]
+  refreshTokens       RefreshToken[]
+  venteComptabilities VenteComptability[]
 
   @@map("users")
 }
@@ -260,14 +261,15 @@ model Programmation {
 model Vente {
   id Int @id @default(autoincrement())
 
-  commandClientId Int?
-  statutId        Int?
-  produitId       Int?
-  typeId          Int?
-  clientId        Int?
-  treatedById     Int?
-  createdById     Int?
-  validatedById   Int?
+  commandClientId    Int?
+  statutId           Int?
+  produitId          Int?
+  typeId             Int?
+  typeFactureVenteId Int?
+  clientId           Int?
+  treatedById        Int?
+  createdById        Int?
+  validatedById      Int?
 
   code        String   @unique
   date        DateTime
@@ -294,9 +296,10 @@ model Vente {
   produit                   Produit?                   @relation(fields: [produitId], references: [id])
   statut                    StatutVente?               @relation(fields: [statutId], references: [id])
   type                      TypeCommandeClient?        @relation(fields: [typeId], references: [id])
+  typeFactureVente          TypeFactureVente?          @relation(fields: [typeFactureVenteId], references: [id])
   treatedBy                 User?                      @relation("VenteTreatedBy", fields: [treatedById], references: [id])
   reglements                Reglement[]
-  venteComptabilities       VenteComptability[]
+  venteComptability        VenteComptability?
   demandeModificationVentes DemandeModificationVente[]
   demandeSuppressionVentes  DemandeSuppressionVente[]
 
@@ -336,7 +339,7 @@ model CommandeClient {
 model VenteComptability {
   id Int @id @default(autoincrement())
 
-  venteId              Int?
+  venteId              Int? @unique
   aib                  Float?
   tva                  Float?
   ttcPrice             Float?
@@ -352,7 +355,8 @@ model VenteComptability {
   updatedAt DateTime  @updatedAt
 
   // relations
-  vente Vente? @relation(fields: [venteId], references: [id])
+  vente  Vente? @relation(fields: [venteId], references: [id])
+  sender User? @relation(fields: [senderToComptability], references: [id])
 
   @@map("vente_comptabilities")
 }
@@ -748,6 +752,20 @@ model TypeDetailRecuCommande {
   approvisionnements     Approvisionnement[]
 
   @@map("type_detail_recu_commandes")
+}
+
+model TypeFactureVente {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  ventes Vente[]
+
+  @@map("type_factures_vente")
 }
 
 model StatutProgrammation {

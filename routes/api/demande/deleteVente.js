@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getVentes, createVente, updateVente, validateVente, deleteVente } from '../../../controllers/vente/venteController.js';
+import { getDemandes, createDemande, updateDemande, validerDemande, deleteDemande } from '../../../controllers/demande/deleteVenteController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
@@ -12,12 +12,12 @@ const handlePreuveUpload = (req, res, next) => {
 };
 
 router.route("/")
-    .get(jwtAuth, getVentes)
-    .post(jwtAuth, handlePreuveUpload, createVente);
+    .get(jwtAuth, getDemandes)
+    .post(jwtAuth, handlePreuveUpload, createDemande);
 
 router.route("/:id")
-    .put(jwtAuth, handlePreuveUpload, updateVente)
-    .post(jwtAuth, handlePreuveUpload, validateVente)
-    .delete(jwtAuth, deleteVente);
+    .put(jwtAuth, handlePreuveUpload, updateDemande)
+    .post(jwtAuth, validerDemande)
+    .delete(jwtAuth, deleteDemande);
 
 export default router;

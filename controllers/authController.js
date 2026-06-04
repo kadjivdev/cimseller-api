@@ -17,7 +17,18 @@ const login = async (req, res) => {
 
         // recherche de l'utilisateur
         const user = await prisma.user.findFirst({
-            where: { email, deletedAt: null }
+            where: { email, deletedAt: null },
+            include:{
+                role: {
+                    include: {
+                        permissions: {
+                            include: { permission: {
+                                select:{id:true, name:true,description:true}
+                            } }
+                        }
+                    }
+                }
+            }
         });
 
         if (!user) {

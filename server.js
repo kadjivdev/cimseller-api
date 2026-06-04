@@ -33,6 +33,15 @@ import commandeAccuseRoutes from "./routes/api/commande/commandeAccuse.js";
 // vente's routes
 import commandClientRoutes from "./routes/api/vente/commandClients.js"
 import venteRoutes from "./routes/api/vente/ventes.js"
+import comptabilityRoutes from "./routes/api/vente/comptabilities.js"
+
+// compte's routes
+import approvisionnementRoutes from "./routes/api/compte/approvisionnements.js"
+import reglementRoutes from "./routes/api/compte/reglements.js"
+
+// demandes
+import updateVenteRoutes from "./routes/api/demande/upddateVente.js"
+import deleteVenteRoutes from "./routes/api/demande/deleteVente.js"
 
 // env configuration
 dotenv.config();
@@ -85,8 +94,15 @@ app.use("/api/programmations", programmationRoutes)
 // ventes
 app.use("/api/commande-clients", commandClientRoutes)
 app.use("/api/ventes", venteRoutes)
+app.use("/api/comptabilities", comptabilityRoutes)
 
+// compte
+app.use("/api/approvisionnements", approvisionnementRoutes)
+app.use("/api/reglements", reglementRoutes)
 
+// demandes
+app.use("/api/demandes-modification-vente", updateVenteRoutes)
+app.use("/api/demandes-suppression-vente", deleteVenteRoutes)
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -18,13 +18,16 @@ const getRoles = async (req, res) => {
             }
         });
 
-        res.json(roles);
+        const formattedRoles = roles.map((role) => ({
+            ...role,
+            permissions: role.permissions.map((rolePermission) => rolePermission.permission)
+        }));
+
+        res.json(formattedRoles);
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch roles' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
     }
 };
 
@@ -53,7 +56,7 @@ const createRole = async (req, res) => {
             }
         }
 
-        let {permissionIds,...roleData} = result.data
+        let { permissionIds, ...roleData } = result.data
         // insertion
         const newRole = await prisma.role.create({
             data: {
@@ -115,7 +118,22 @@ const updateRole = async (req, res) => {
 
         let { permissionIds, ...roleData } = result.data
 
-        // return res.json(result.data?.permissionIds?.map((id) => id))
+        if (permissionIds && permissionIds.length > 0) {
+            console.log("Requested permissionIds:", permissionIds)
+            const existingPermissions = await prisma.permission.findMany({
+                where: { id: { in: permissionIds } },
+                select: { id: true }
+            });
+            const existingIds = existingPermissions.map((permission) => permission.id);
+            const missingPermissions = permissionIds.filter((permissionId) => !existingIds.includes(permissionId));
+
+            if (missingPermissions.length > 0) {
+                console.error("Missing permission IDs:", missingPermissions);
+                return res.status(400).json({
+                    error: `Permissions introuvables : ${missingPermissions.join(', ')}`
+                });
+            }
+        }
 
         // insertion
         const updatedRole = await prisma.role.update({
@@ -152,10 +170,10 @@ const deleteRole = async (req, res) => {
     const { id } = req.params;
 
     try {
-        let roleFound = await prisma.role.findUnique({
+        let roleFound = await prisma.role.findFirst({
             where: { id: parseInt(id), deletedAt: null }
         });
-        if (!roleFound) return res.status(404).json({ error: 'User non trouvé' });
+        if (!roleFound) return res.status(404).json({ error: 'Rôle non trouvé' });
 
         // suppression du role de la base de données et log du résultat
         await prisma.role.update({

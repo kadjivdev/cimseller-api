@@ -128,12 +128,34 @@ const tools = {
             description: 'La vente est en cours de préparation.',
         },
         {
+            name: 'Validée',
+            description: 'La vente est validée.',
+        },
+        {
             name: 'Vendue',
             description: 'La vente est finalisée et le produit est vendu.',
         },
         {
             name: 'En attente de modification',
             description: 'La vente est en attente de modification.',
+        },
+        {
+            name: 'Contrôlée',
+            description: 'La vente est contrôlée.',
+        },
+    ],
+    typeFactures: [
+        {
+            name: 'Avec facture',
+            description: 'Vente éffectuée avec facture.',
+        },
+        {
+            name: 'Sans facture',
+            description: 'Vente éffectuée sans facture.',
+        },
+        {
+            name: "Facture à prendre après",
+            description: 'Vente éffectuée avec facture à prendre après.',
         }
     ],
     typeProduits: [
@@ -223,6 +245,7 @@ const seedTools = async () => {
         prisma.TypeProduit.createMany({ data: tools.typeProduits }),
         prisma.StatutClient.createMany({ data: tools.statutClients }),
         prisma.TypeClient.createMany({ data: tools.typeClients }),
+        prisma.TypeFactureVente.createMany({ data: tools.typeFactures }),
         prisma.Marque.createMany({ data: tools.marqueCamions })
     ]);
 

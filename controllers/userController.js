@@ -9,14 +9,30 @@ const getUsers = async (req, res) => {
         const users = await prisma.user.findMany({
             where: { deletedAt: null },
             orderBy: { createdAt: 'desc' },
-            include: { role: true }
+            include: {
+                role: {
+                    include: {
+                        permissions: {
+                            include: { permission: {
+                                select:{id:true, name:true,description:true}
+                            } }
+                        }
+                    }
+                }
+            }
         });
 
         users.forEach((user) => {
             delete user.password
         })
 
-        res.json(users);
+        res.json(users.map(user => ({
+            ...user,
+            role: user.role ? {
+                ...user.role,
+                permissions: user.role.permissions.map((rolePermission) => rolePermission.permission)
+            } : null
+        })));
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
