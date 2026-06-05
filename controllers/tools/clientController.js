@@ -78,53 +78,56 @@ const getClients = async (req, res) => {
 // create client in the database and log the result
 const createClient = async (req, res) => {
     console.log("Req body : ", req.body)
+
     try {
+        await prisma.$transaction(async (tx) => {
 
-        // validation du profil
-        const imageCheck = validateImageFile(req.file, { required: false });
-        if (!imageCheck.ok) {
-            return res.status(400).json({ error: imageCheck.error });
-        }
-
-        const result = clientValidation.safeParse({
-            ...req.body,
-            profil: req.file?.filename,
-            phone: req.body?.phone != null ? String(req.body.phone) : undefined,
-        });
-
-        if (!result.success) {
-            return res.status(400).json({
-                errors: result.error.format(),
-            });
-        }
-
-        // phone
-        if (result.data?.phone) {
-            const existing = await prisma.client.findFirst({
-                where: { phone: result.data.phone, deletedAt: null },
-            });
-
-            if (existing) {
-                return res.status(409).json({ error: 'Ce phone existe déjà' });
+            // validation du profil
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
             }
-        }
 
-        // email
-        if (result.data?.email) {
-            const existing = await prisma.client.findFirst({
-                where: { email: result.data.email, deletedAt: null },
+            const result = clientValidation.safeParse({
+                ...req.body,
+                profil: req.file?.filename,
+                phone: req.body?.phone != null ? String(req.body.phone) : undefined,
             });
 
-            if (existing) {
-                return res.status(409).json({ error: 'Cet email existe déjà' });
+            if (!result.success) {
+                return res.status(400).json({
+                    errors: result.error.format(),
+                });
             }
-        }
 
-        const newClient = await prisma.client.create({
-            data: { ...result.data },
-        });
+            // phone
+            if (result.data?.phone) {
+                const existing = await prisma.client.findFirst({
+                    where: { phone: result.data.phone, deletedAt: null },
+                });
 
-        res.status(201).json(newClient);
+                if (existing) {
+                    return res.status(409).json({ error: 'Ce phone existe déjà' });
+                }
+            }
+
+            // email
+            if (result.data?.email) {
+                const existing = await prisma.client.findFirst({
+                    where: { email: result.data.email, deletedAt: null },
+                });
+
+                if (existing) {
+                    return res.status(409).json({ error: 'Cet email existe déjà' });
+                }
+            }
+
+            const newClient = await prisma.client.create({
+                data: { ...result.data },
+            });
+
+            res.status(201).json(newClient);
+        })
     } catch (error) {
         console.error('Failed to create client:', error);
         res.status(500).json({ error: error.message || 'Failed to create client' });
@@ -134,44 +137,57 @@ const createClient = async (req, res) => {
 // import clients from a xlsx file and log the result
 const importClients = async (req, res) => {
     console.log("Importation des clients")
+
     try {
-        const uploadFile = req.file ?? (Array.isArray(req.files) ? req.files[0] : req.files?.clients?.[0] ?? req.files?.file?.[0]);
-        if (!uploadFile) {
-            return res.status(400).json({ error: 'Fichier requis' });
-        }
-        // validate file type and size
+        await prisma.$transaction(async (tx) => {
+            const uploadFile = req.file ?? (Array.isArray(req.files) ? req.files[0] : req.files?.clients?.[0] ?? req.files?.file?.[0]);
+            if (!uploadFile) {
+                return res.status(400).json({ error: 'Fichier requis' });
+            }
+            // validate file type and size
 
-        if (uploadFile.mimetype !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-            return res.status(400).json({ error: 'Format de fichier invalide' });
-        }
+            if (uploadFile.mimetype !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+                return res.status(400).json({ error: 'Format de fichier invalide' });
+            }
 
-        // xlsx processing
-        const workbook = uploadFile.buffer
-            ? XLSX.read(uploadFile.buffer, { type: 'buffer' })
-            : XLSX.readFile(uploadFile.path);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+            if (req.body?.statutId) {
+                let statut = await tx.statutClient.findFirst({
+                    where: { id: parseInt(req.body?.statutId) }
+                })
 
-        const data = XLSX.utils.sheet_to_json(worksheet);
+                if (!statut) {
+                    res.status(404).json({ error: "Ce statut de client n'existe pas!" })
+                }
+            }
 
-        const clients = data.map((row) => ({
-            raison_sociale: row.Nom ?? null,
-            phone: row.Telephone != null ? String(row.Telephone).trim() : null,
-            zoneId: row.Zone ?? null,
-            statutId: row.Statut ?? req.body?.statutId ?? 1,
-            email: row.Email ?? null,
-            adresse: row.Adresse ?? null,
-        }));
+            // xlsx processing
+            const workbook = uploadFile.buffer
+                ? XLSX.read(uploadFile.buffer, { type: 'buffer' })
+                : XLSX.readFile(uploadFile.path);
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
 
-        await prisma.client.createMany({
-            data: clients,
-            skipDuplicates: true,
-        });
+            const data = XLSX.utils.sheet_to_json(worksheet);
 
-        return res.status(201).json({
-            message: "Clients imported successfully!",
-            insertedCount: clients.length
-        });
+            const clients = data.map((row) => ({
+                raison_sociale: row.Nom ?? null,
+                phone: row.Telephone != null ? String(row.Telephone).trim() : null,
+                zoneId: row.Zone ?? null,
+                statutId: row.Statut ?? parseInt(req.body?.statutId) ?? 1,
+                email: row.Email ?? null,
+                adresse: row.Adresse ?? null,
+            }));
+
+            await tx.client.createMany({
+                data: clients,
+                skipDuplicates: true,
+            });
+
+            return res.status(201).json({
+                message: "Clients imported successfully!",
+                insertedCount: clients.length
+            });
+        })
     } catch (error) {
         console.error('Failed to import clients:', error);
         res.status(500).json({ error: error.message || 'Failed to import clients' });
@@ -183,55 +199,58 @@ const updateClient = async (req, res) => {
     let { id } = req.params;
 
     try {
-        let clientFound = await prisma.client.findUnique({ where: { id: parseInt(id) } })
-        if (!clientFound) return res.status(404).json({ error: "Ce client n'existe pas!" })
 
-        const imageCheck = validateImageFile(req.file, { required: false });
-        if (!imageCheck.ok) {
-            return res.status(400).json({ error: imageCheck.error });
-        }
+        await prisma.$transaction(async function (tx) {
+            let clientFound = await prisma.client.findUnique({ where: { id: parseInt(id) } })
+            if (!clientFound) return res.status(404).json({ error: "Ce client n'existe pas!" })
 
-        const result = clientValidation.safeParse({
-            ...clientFound,
-            ...req.body,
-            ...(req.file && { profil: req.file?.filename }),
-            phone: req.body?.phone != null ? String(req.body.phone) : clientFound.phone,
-        });
-
-        if (!result.success) {
-            return res.status(400).json({
-                errors: result.error.format(),
-            });
-        }
-
-        // phone
-        if (result.data?.phone) {
-            const existing = await prisma.client.findFirst({
-                where: { phone: result.data?.phone, NOT: { id: parseInt(id) } },
-            });
-
-            if (existing) {
-                return res.status(409).json({ error: 'Ce phone existe déjà' });
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
             }
-        }
 
-        // email
-        if (result.data?.email) {
-            const existing = await prisma.client.findFirst({
-                where: { email: result.data.email, NOT: { id: parseInt(id) } },
+            const result = clientValidation.safeParse({
+                ...clientFound,
+                ...req.body,
+                ...(req.file && { profil: req.file?.filename }),
+                phone: req.body?.phone != null ? String(req.body.phone) : clientFound.phone,
             });
 
-            if (existing) {
-                return res.status(409).json({ error: 'Cet email existe déjà' });
+            if (!result.success) {
+                return res.status(400).json({
+                    errors: result.error.format(),
+                });
             }
-        }
 
-        const updatedClient = await prisma.client.update({
-            where: { id: parseInt(id) },
-            data: { ...result.data },
-        });
+            // phone
+            if (result.data?.phone) {
+                const existing = await prisma.client.findFirst({
+                    where: { phone: result.data?.phone, NOT: { id: parseInt(id) } },
+                });
 
-        res.json(updatedClient);
+                if (existing) {
+                    return res.status(409).json({ error: 'Ce phone existe déjà' });
+                }
+            }
+
+            // email
+            if (result.data?.email) {
+                const existing = await prisma.client.findFirst({
+                    where: { email: result.data.email, NOT: { id: parseInt(id) } },
+                });
+
+                if (existing) {
+                    return res.status(409).json({ error: 'Cet email existe déjà' });
+                }
+            }
+
+            const updatedClient = await tx.client.update({
+                where: { id: parseInt(id) },
+                data: { ...result.data },
+            });
+
+            res.json(updatedClient);
+        })
     } catch (error) {
         console.error('Failed to update client:', error);
         res.status(500).json({ error: error.message || 'Failed to update client' });
@@ -242,23 +261,25 @@ const deleteClient = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const clientFound = await prisma.client.findUnique({
-            where: { id: parseInt(id), deletedAt: null },
-        });
+        await prisma.$transaction(async () => {
+            const clientFound = await prisma.client.findUnique({
+                where: { id: parseInt(id), deletedAt: null },
+            });
 
-        if (!clientFound) {
-            return res.status(404).json({ error: 'Client non trouvé' });
-        }
+            if (!clientFound) {
+                return res.status(404).json({ error: 'Client non trouvé' });
+            }
 
-        await prisma.client.update({
-            where: { id: parseInt(id) },
-            data: { deletedAt: new Date() },
-        });
+            await tx.client.update({
+                where: { id: parseInt(id) },
+                data: { deletedAt: new Date() },
+            });
 
-        // suppression du profil du client
-        await deleteProfil(clientFound.profil)
+            // suppression du profil du client
+            await deleteProfil(clientFound.profil)
 
-        res.status(200).json({ message: 'Client supprimé avec succès!' });
+            res.status(200).json({ message: 'Client supprimé avec succès!' });
+        })
     } catch (error) {
         console.error('Failed to delete client:', error);
         res.status(500).json({ error: 'Erreure de suppresion de la client' });

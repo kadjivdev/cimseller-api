@@ -1,6 +1,7 @@
 import logger from '../config/logger.js';
 import prisma from '../config/prisma.js';
 import bcrypt from 'bcrypt';
+import XLSX from 'xlsx';
 import { userValidation } from '../database/validations/userValidation.js';
 
 // Get all users from the database and log them
@@ -13,26 +14,31 @@ const getUsers = async (req, res) => {
                 role: {
                     include: {
                         permissions: {
-                            include: { permission: {
-                                select:{id:true, name:true,description:true}
-                            } }
+                            include: {
+                                permission: {
+                                    select: { id: true, name: true, description: true }
+                                }
+                            }
                         }
                     }
                 }
             }
         });
 
-        users.forEach((user) => {
-            delete user.password
-        })
+        // users.forEach((user) => {
+        //     delete user.password
+        // })
 
-        res.json(users.map(user => ({
-            ...user,
-            role: user.role ? {
-                ...user.role,
-                permissions: user.role.permissions.map((rolePermission) => rolePermission.permission)
-            } : null
-        })));
+        res.json(users.map(function (user) {
+            delete user.password;//on doit pas afficher le password
+            return {
+                ...user,
+                role: user.role ? {
+                    ...user.role,
+                    permissions: user.role.permissions.map((rolePermission) => rolePermission.permission)
+                } : null
+            }
+        }));
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -94,6 +100,55 @@ const createUser = async (req, res) => {
         }
         res.status(500).json({ error: error.message || 'Failed to create user' });
         throw error;
+    }
+};
+
+// import users from a xlsx file and log the result
+const importUsers = async (req, res) => {
+    console.log("Importation des users")
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            const uploadFile = req.file ?? (Array.isArray(req.files) ? req.files[0] : req.files?.users?.[0] ?? req.files?.file?.[0]);
+            if (!uploadFile) {
+                return res.status(400).json({ error: 'Fichier requis' });
+            }
+            // validate file type and size
+
+            if (uploadFile.mimetype !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+                return res.status(400).json({ error: 'Format de fichier invalide' });
+            }
+
+            // xlsx processing
+            const workbook = uploadFile.buffer
+                ? XLSX.read(uploadFile.buffer, { type: 'buffer' })
+                : XLSX.readFile(uploadFile.path);
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+
+            const data = XLSX.utils.sheet_to_json(worksheet);
+
+            const users = await Promise.all(
+                data.map(async (row) => ({
+                    fullname: row.Nom ?? null,
+                    email: row.Email ?? null,
+                    password: await bcrypt.hash(row.Email, 10),
+                }))
+            );
+
+            await tx.user.createMany({
+                data: users,
+                skipDuplicates: true,
+            });
+
+            return res.status(201).json({
+                message: "Users imported successfully!",
+                insertedCount: users.length
+            });
+        })
+    } catch (error) {
+        console.error('Failed to import users:', error);
+        res.status(500).json({ error: error.message || 'Failed to import users' });
     }
 };
 
@@ -178,4 +233,4 @@ const deleteUser = async (req, res) => {
     }
 };
 
-export { getUsers, createUser, updateUser, deleteUser };
+export { getUsers, createUser, updateUser, deleteUser, importUsers };
