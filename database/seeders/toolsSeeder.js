@@ -4,37 +4,58 @@ import prisma from '../../config/prisma.js';
 const tools = {
     zones: [
         {
-            name: 'Alibori',
+            name: 'Inconnue 1',//1
         }, {
-            name: 'Atacora',
+            name: 'Ouémé',//2
         }, {
-            name: 'Borgou',
+            name: 'Inconnue 2',//3
         }, {
-            name: 'Collines',
+            name: 'Littoral',//4
         }, {
-            name: 'Dahomey',
+            name: 'Atlantique',//5
         }, {
-            name: 'Donga',
+            name: 'Mono',//6
         }, {
-            name: 'Littoral',
+            name: 'Atacora',//7
         }, {
-            name: 'Mono',
+            name: 'Alibori',//8
         }, {
-            name: 'Ouémé',
+            name: 'Borgou-Nord',//9
         }, {
-            name: 'Plateau',
+            name: 'Borgou-Sud',//10
         }, {
-            name: 'Zou',
+            name: 'Donga',//11
         }, {
-            name: 'Direction',
+            name: 'Inconnue 3',//12
         }, {
-            name: 'Porto-Novo',
+            name: 'Inconnue 4',//13
         }, {
-            name: 'Borgou-Nord',
+            name: 'Inconnue 5',//14
         }, {
-            name: 'Borgou-Sud',
-        }
+            name: 'Inconnue 6',//15
+        }, {
+            name: 'Inconnue 7',//16
+        }, {
+            name: 'Inconnue 8',//17
+        }, {
+            name: 'Direction',//18
+        }, {
+            name: 'Inconnue 9',//19
+        }, {
+            name: 'Inconnue 10',//20
+        }, {
+            name: 'Collines',//21
+        }, {
+            name: 'Zou',//22
+        }, {
+            name: 'Couffo',//23
+        }, {
+            name: 'Plateau',//24
+        }, {
+            name: 'Zone BTP',//25
+        },
     ],
+
     statutCommandes: [
         {
             name: 'Programmée',

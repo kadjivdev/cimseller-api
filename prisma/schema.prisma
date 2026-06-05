@@ -299,7 +299,7 @@ model Vente {
   typeFactureVente          TypeFactureVente?          @relation(fields: [typeFactureVenteId], references: [id])
   treatedBy                 User?                      @relation("VenteTreatedBy", fields: [treatedById], references: [id])
   reglements                Reglement[]
-  venteComptability        VenteComptability?
+  venteComptability         VenteComptability?
   demandeModificationVentes DemandeModificationVente[]
   demandeSuppressionVentes  DemandeSuppressionVente[]
 
@@ -339,7 +339,7 @@ model CommandeClient {
 model VenteComptability {
   id Int @id @default(autoincrement())
 
-  venteId              Int? @unique
+  venteId              Int?   @unique
   aib                  Float?
   tva                  Float?
   ttcPrice             Float?
@@ -356,7 +356,7 @@ model VenteComptability {
 
   // relations
   vente  Vente? @relation(fields: [venteId], references: [id])
-  sender User? @relation(fields: [senderToComptability], references: [id])
+  sender User?  @relation(fields: [senderToComptability], references: [id])
 
   @@map("vente_comptabilities")
 }
@@ -576,12 +576,11 @@ model Client {
   statutId Int?
   typeId   Int?
 
-  nom     String
-  prenom  String
-  profil  String?
-  phone   String? @unique
-  email   String? @unique
-  adresse String?
+  raison_sociale String
+  profil         String?
+  phone          String? @unique
+  email          String? @unique
+  adresse        String?
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())

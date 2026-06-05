@@ -22,13 +22,9 @@ const clientValidation = z.object({
         })
         .nullish(),
 
-    nom: z
-        .string("Le nom doit être une chaîne")
-        .nonempty("Le nom est requis"),
-
-    prenom: z
-        .string("Le prénom doit être une chaîne")
-        .nonempty("Le prénom est requis"),
+    raison_sociale: z
+        .string("La raison sociale doit être une chaîne")
+        .nonempty("La raison sociale est requise"),
 
     profil: z
         .string("Le profil doit être de type string")

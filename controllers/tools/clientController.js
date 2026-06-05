@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import prisma from '../../config/prisma.js';
+import XLSX from 'xlsx';
 import { clientValidation } from '../../database/validations/tools/clientValidation.js';
 
 const UPLOADS_DIR = path.join(
@@ -74,9 +75,11 @@ const getClients = async (req, res) => {
     }
 };
 
+// create client in the database and log the result
 const createClient = async (req, res) => {
     console.log("Req body : ", req.body)
     try {
+
         // validation du profil
         const imageCheck = validateImageFile(req.file, { required: false });
         if (!imageCheck.ok) {
@@ -85,7 +88,8 @@ const createClient = async (req, res) => {
 
         const result = clientValidation.safeParse({
             ...req.body,
-            profil: req.file?.filename
+            profil: req.file?.filename,
+            phone: req.body?.phone != null ? String(req.body.phone) : undefined,
         });
 
         if (!result.success) {
@@ -97,7 +101,7 @@ const createClient = async (req, res) => {
         // phone
         if (result.data?.phone) {
             const existing = await prisma.client.findFirst({
-                where: { phone: result.data.phone,deletedAt:null },
+                where: { phone: result.data.phone, deletedAt: null },
             });
 
             if (existing) {
@@ -108,7 +112,7 @@ const createClient = async (req, res) => {
         // email
         if (result.data?.email) {
             const existing = await prisma.client.findFirst({
-                where: { email: result.data.email,deletedAt:null },
+                where: { email: result.data.email, deletedAt: null },
             });
 
             if (existing) {
@@ -127,6 +131,54 @@ const createClient = async (req, res) => {
     }
 };
 
+// import clients from a xlsx file and log the result
+const importClients = async (req, res) => {
+    console.log("Importation des clients")
+    try {
+        const uploadFile = req.file ?? (Array.isArray(req.files) ? req.files[0] : req.files?.clients?.[0] ?? req.files?.file?.[0]);
+        if (!uploadFile) {
+            return res.status(400).json({ error: 'Fichier requis' });
+        }
+        // validate file type and size
+
+        if (uploadFile.mimetype !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+            return res.status(400).json({ error: 'Format de fichier invalide' });
+        }
+
+        // xlsx processing
+        const workbook = uploadFile.buffer
+            ? XLSX.read(uploadFile.buffer, { type: 'buffer' })
+            : XLSX.readFile(uploadFile.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        const data = XLSX.utils.sheet_to_json(worksheet);
+
+        const clients = data.map((row) => ({
+            raison_sociale: row.Nom ?? null,
+            phone: row.Telephone != null ? String(row.Telephone).trim() : null,
+            zoneId: row.Zone ?? null,
+            statutId: row.Statut ?? req.body?.statutId ?? 1,
+            email: row.Email ?? null,
+            adresse: row.Adresse ?? null,
+        }));
+
+        await prisma.client.createMany({
+            data: clients,
+            skipDuplicates: true,
+        });
+
+        return res.status(201).json({
+            message: "Clients imported successfully!",
+            insertedCount: clients.length
+        });
+    } catch (error) {
+        console.error('Failed to import clients:', error);
+        res.status(500).json({ error: error.message || 'Failed to import clients' });
+    }
+};
+
+
 const updateClient = async (req, res) => {
     let { id } = req.params;
 
@@ -142,7 +194,8 @@ const updateClient = async (req, res) => {
         const result = clientValidation.safeParse({
             ...clientFound,
             ...req.body,
-            ...(req.file && { profil: req.file?.filename })
+            ...(req.file && { profil: req.file?.filename }),
+            phone: req.body?.phone != null ? String(req.body.phone) : clientFound.phone,
         });
 
         if (!result.success) {
@@ -212,4 +265,4 @@ const deleteClient = async (req, res) => {
     }
 };
 
-export { getClients, createClient, updateClient, deleteClient };
+export { getClients, createClient, updateClient, deleteClient, importClients };

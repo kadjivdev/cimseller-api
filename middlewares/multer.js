@@ -54,4 +54,19 @@ const upload = multer({
     },
 });
 
+const memoryStorage = multer.memoryStorage();
+
+const memoryUpload = multer({
+    storage: memoryStorage,
+    limits: { fileSize: MAX_FILE_SIZE },
+    fileFilter: (_req, file, cb) => {
+        if (ALLOWED_MIMES.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error("Format image invalide"));
+        }
+    },
+});
+
 export default upload;
+export { memoryUpload };
