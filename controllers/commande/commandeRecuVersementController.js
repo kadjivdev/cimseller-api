@@ -130,6 +130,37 @@ const createCommandeRecuVersement = async (req, res) => {
     })
 };
 
+// retrieve a commandeRecuVersement in the database and log the result
+const retrieveCommandeRecuVersement = async (req, res) => {
+    console.log('Request body:', req.body); // Log the incoming request body
+
+    let { id } = req.params
+
+    await prisma.$transaction(async (tx) => {
+        try {
+            // found
+            const commandeRecuVersementFound = await tx.commandeVersementRecu.findFirst({
+                where: { id: parseInt(id), deletedAt: null },
+                include: {
+                    recu: true,
+                    typeDetailRecu: true,
+                    compte: {
+                        include: { banque: true }
+                    },
+                }
+            })
+            if (!commandeRecuVersementFound) return res.status(400).json({ error: " Ce versement n'existe pas!" })
+
+            res.status(200).json(commandeRecuVersementFound);
+        } catch (error) {
+            console.error('Failed to retrieve versement commande reçu:', error);
+
+            res.status(500).json({ error: error.message || 'Failed to update versment commande reçu' });
+            throw error;
+        }
+    })
+};
+
 // update a commandeRecuVersement in the database and log the result
 const updateCommandeRecuVersement = async (req, res) => {
     console.log('Request body:', req.body); // Log the incoming request body
@@ -266,4 +297,4 @@ const deleteCommandeRecuVersement = async (req, res) => {
     })
 };
 
-export { getCommandeRecuVersements, createCommandeRecuVersement, updateCommandeRecuVersement, deleteCommandeRecuVersement };
+export { getCommandeRecuVersements, retrieveCommandeRecuVersement, createCommandeRecuVersement, updateCommandeRecuVersement, deleteCommandeRecuVersement };

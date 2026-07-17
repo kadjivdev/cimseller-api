@@ -6,6 +6,7 @@ import upload from '../../../middlewares/multer.js';
 const router = Router();
 
 const handleImageUpload = (req, res, next) => {
+    // console.log("file :",req.file)
     upload.single('image')(req, res, (err) => {
         if (!err) return next();
         if (err.code === 'LIMIT_FILE_SIZE') {

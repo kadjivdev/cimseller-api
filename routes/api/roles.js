@@ -1,6 +1,6 @@
 // import express from 'express';
 import { Router } from 'express';
-import { getRoles, createRole, updateRole, deleteRole } from '../../controllers/roleController.js';
+import { getRoles, retrieveRole, createRole, updateRole, deleteRole } from '../../controllers/roleController.js';
 import jwtAuth from '../../middlewares/jwtAuth.js';
 
 const router = Router();
@@ -10,6 +10,7 @@ router.route("/")
     .post(jwtAuth, createRole);
 
 router.route("/:id")
+    .get(jwtAuth,retrieveRole)
     .put(jwtAuth, updateRole)
     .delete(jwtAuth, deleteRole);
 

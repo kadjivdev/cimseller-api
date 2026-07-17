@@ -3,6 +3,17 @@ import prisma from '../../config/prisma.js';
 import bcrypt from 'bcrypt';
 import { commandeValidation, commandeDetailValidation } from '../../database/validations/commande/commandeValidation.js';
 
+const commandFormat = (command) => {
+    let qteCommander = command.commandeDetails?.reduce((qte, dt) => (qte + dt.qteCommande), 0)
+    let qteProgrammer = command.programmations?.reduce((qte, dt) => (qte + dt.qteProgrammer), 0)
+    return {
+        ...command,
+        qteCommander,
+        qteProgrammer,
+        stock: qteCommander - qteProgrammer
+    }
+}
+
 // Get all commandes from the database and log them
 const getCommandes = async (req, res) => {
     console.log("Getting commandes")
@@ -12,34 +23,111 @@ const getCommandes = async (req, res) => {
             where: { deletedAt: null },
             orderBy: { id: 'desc' },
             include: {
-                //  relations
-                commandeDetails: true,
-                commandeRecus: {
-                    where: { deletedAt: null }
+                statut: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
                 },
-                programmations: true,
-                commandeAccuses: true,
-                statut: true,
-                type: true,
-                fournisseur: true,
-                createdBy: true,
-                validatedBy: true
+                type: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
+                },
+                fournisseur: {
+                    select: {
+                        id: true,
+                        raison_sociale: true,
+                    }
+                },
+                createdBy: {
+                    select: {
+                        fullname: true
+                    }
+                },
+                validatedBy: {
+                    select: {
+                        fullname: true
+                    }
+                },
+                commandeDetails: {
+                    select: {
+                        id: true,
+                        qteCommande: true,
+                        unitePrice: true,
+                        remise: true,
+                        product: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
+                },
+                programmations: {
+                    where: { NOT: { validatedBy: null } },
+                    select: {
+                        qteProgrammer: true,
+                    }
+                }
             }
         });
 
-        res.json(commandes);
+        res.json(commandes.map(commandFormat));
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch commandes' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
+    }
+};
+
+// retrieve a commande in the database and log the result
+const retrieveCommande = async (req, res) => {
+    console.log('Request body:', req.body);
+
+    let { id } = req.params;
+    console.log("id :", id);
+
+    try {
+        const commandeFound = await prisma.commande.findUnique({
+            where: {
+                id: parseInt(id),
+                deletedAt: null
+            },
+            include: {
+                statut: true,
+                type: true,
+                fournisseur: true,
+                createdBy: true,
+                validatedBy: true,
+                commandeDetails: true,
+                commandeRecus: {
+                    where: { deletedAt: null }
+                },
+                commandeAccuses: {
+                    where: { deletedAt: null }
+                },
+                programmations: {
+                    where: { deletedAt: null }
+                },
+            }
+        });
+
+        if (!commandeFound) {
+            return res.status(404).json({ error: "Cette commande n'existe pas!" });
+        }
+
+        return res.status(200).json(commandeFound);
+    } catch (error) {
+        console.error('Failed to retrieve commande:', error);
+        return res.status(500).json({ error: error.message || 'Failed to retrieve commande' });
     }
 };
 
 // create a new commandes in the database and log the result
 const createCommande = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Début de creation de commande:', req.body); // Log the incoming request body
 
     let user = req.user?.user
 
@@ -51,13 +139,23 @@ const createCommande = async (req, res) => {
                 select: { id: true }
             });
             const resultCommande = commandeValidation.safeParse({ ...req.body, code: `BCI-00${last?.id ? (last?.id + 1) : 1}` });
-
             console.log("resultCommande :", resultCommande.data)
 
             if (!resultCommande.success) {
                 return res.status(400).json({
                     errors: resultCommande.error.format()
                 });
+            }
+
+            // traitement de la reference
+            if (resultCommande.data?.reference) {
+                let reference = await tx.commande.findFirst({
+                    where: { reference: resultCommande.data?.reference, deletedAt: null },
+                });
+
+                if (reference) {
+                    return res.status(409).json({ error: 'Cette reference existe déjà' });
+                }
             }
 
             // traitement du fournisseur
@@ -87,12 +185,16 @@ const createCommande = async (req, res) => {
                 data: {
                     ...resultCommande.data,
                     createdById: user?.id,
+                    statutId: 1,
+                    montant: 0,
                     commandeDetails: {
                         create: {}//initiation du detail
                     }
                 },
             });
 
+
+            console.log("Fin d'insertion de commande")
             res.status(201).json(newCommande);
         } catch (error) {
             console.error('Failed to create commande:', error);
@@ -115,25 +217,39 @@ const updateCommande = async (req, res) => {
             const commandeFound = await tx.commande.findFirst({
                 where: { id: parseInt(id) }
             })
-            if (!commandeFound) return res.status(400).json({ error: " Cette commande n'existe pas!" })
-
+            if (!commandeFound) return res.status(422).json({ error: " Cette commande n'existe pas!" })
             if (commandeFound.validatedAt) return res.status(400).json({ error: "Cette commande est déjà validée" })
 
-            // validation
-
-            let montant =
-                (req.body?.qteCommande * req.body?.unitePrice)
-                - (req.body?.remise ?? 0);
-
-            console.log("data update :", { ...req.body, montant: montant })
-
-            const resultCommande = commandeValidation.safeParse({ ...req.body, montant: montant });
-            let resultDetail = commandeDetailValidation.safeParse(req.body)
-
-            if (!resultCommande.success) {
+            // details
+            if (!req.body?.details || req.body?.details?.length == 0) {
                 return res.status(400).json({
+                    error: "Ajouter au moins un détail"
+                })
+            }
+
+            // validation
+            const resultCommande = commandeValidation.safeParse({ ...req.body });
+            if (!resultCommande.success) {
+                return res.status(422).json({
                     errors: resultCommande.error.format()
                 });
+            }
+
+            // traitement de la reference
+            if (resultCommande.data?.reference) {
+                let reference = await tx.commande.findFirst({
+                    where: {
+                        reference: resultCommande.data?.reference,
+                        NOT: {
+                            id: parseInt(id),
+                        },
+                        deletedAt: null
+                    }
+                });
+
+                if (reference) {
+                    return res.status(409).json({ error: 'Cette reference existe déjà' });
+                }
             }
 
             // traitement du fournisseur
@@ -144,17 +260,6 @@ const updateCommande = async (req, res) => {
 
                 if (!fournisseur) {
                     return res.status(404).json({ error: 'Ce fournisseur n\'existe pas' });
-                }
-            }
-
-            // traitement du statut
-            if (resultCommande.data?.statutId) {
-                let statut = await tx.statutCommande.findFirst({
-                    where: { id: resultCommande.data?.statutId }
-                });
-
-                if (!statut) {
-                    return res.status(404).json({ error: 'Ce statut de commande n\'existe pas' });
                 }
             }
 
@@ -169,25 +274,30 @@ const updateCommande = async (req, res) => {
                 }
             }
 
-            // traitement du produit
-            if (resultDetail.data?.productId) {
-                let product = await tx.product.findFirst({
-                    where: { id: resultDetail.data?.productId }
-                });
-
-                if (!product) {
-                    return res.status(404).json({ error: 'Ce produit n\'existe pas' });
+            /**
+             * Traitement des détails
+             */
+            console.log("details :", req?.body?.details)
+            req?.body?.details?.forEach((ligne, index) => {
+                let resultDetailCommande = commandeDetailValidation.safeParse({ ...ligne });
+                if (!resultDetailCommande.success) {
+                    return res.status(422).json({
+                        errors: { ...resultDetailCommande.error.format(), details: { _errors: `La ligne ${index + 1} est mal insérée` } }
+                    });
                 }
-            }
+            });
 
             // modification de la commande
+            let montant = req?.body?.details?.reduce((sum, dt) => (sum + (dt.qteCommande * dt.unitePrice - dt.remise)), 0)
+
             const updatedCommande = await tx.commande.update({
                 where: { id: parseInt(id) },
                 data: {
                     ...resultCommande.data,
+                    montant,
                     commandeDetails: {
                         deleteMany: {},//suppression des anciens détails
-                        create: { ...resultDetail.data }
+                        create: req?.body?.details
                     }
                 },
             });
@@ -216,7 +326,6 @@ const validateCommande = async (req, res) => {
 
 
             if (!commandeFound) return res.status(404).json({ error: 'Commande non trouvée' });
-
 
             const recuCommandMontant = (commandeFound.commandeRecus ?? [])
                 .filter((c) => !c.deletedAt)//non suprimés
@@ -287,4 +396,4 @@ const deleteCommande = async (req, res) => {
     })
 };
 
-export { getCommandes, createCommande, updateCommande, validateCommande, deleteCommande };
+export { getCommandes, retrieveCommande, createCommande, updateCommande, validateCommande, deleteCommande };

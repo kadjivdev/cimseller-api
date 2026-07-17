@@ -36,11 +36,11 @@ const clientValidation = z.object({
 
     email: z
         .string("Le mail doit être de type string")
-        .optional(),
+        .nullish(),
 
     adresse: z
         .string("L'adresse doit être de type string")
-        .optional(),
+        .nullish(),
 
 });
 

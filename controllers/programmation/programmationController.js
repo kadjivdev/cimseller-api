@@ -32,6 +32,43 @@ const getProgrammations = async (req, res) => {
     }
 };
 
+// retrieve a programmation in the database and log the result
+const retrieveProgrammation = async (req, res) => {
+    console.log('Request body:', req.body); // Log the incoming request body
+
+    let { id } = req.params
+
+    await prisma.$transaction(async (tx) => {
+        try {
+            // found
+            const programmationFound = await tx.programmation.findFirst({
+                where: { id: parseInt(id), deletedAt: null },
+                include: {
+                    commande: true,
+                    zone: true,
+                    statut: true,
+                    camion: true,
+                    chauffeur: true,
+                    avaliseur: true,
+                    createdBy: true,
+                    validatedBy:true
+                }
+            })
+
+            if (!programmationFound) return res.status(400).json({ error: "Cette programmation n'existe pas!" })
+
+            if (programmationFound.validatedAt) return res.status(400).json({ error: "Cette programmation est déjà validée" })
+
+            res.status(200).json(programmationFound);
+        } catch (error) {
+            console.error('Failed to create programmation:', error);
+
+            res.status(500).json({ error: error.message || 'Failed to create programmation' });
+            throw error;
+        }
+    })
+};
+
 // create a new programmations in the database and log the result
 const createProgrammation = async (req, res) => {
     console.log('Request body:', req.body); // Log the incoming request body
@@ -384,4 +421,4 @@ const deleteProgrammation = async (req, res) => {
     })
 };
 
-export { getProgrammations, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation };
+export { getProgrammations,retrieveProgrammation, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation };

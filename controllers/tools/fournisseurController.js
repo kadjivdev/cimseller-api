@@ -15,9 +15,7 @@ const getFournisseurs = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch fournisseurs' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
-    }
+    } 
 };
 
 // create a new fournisseur in the database and log the result
@@ -34,7 +32,7 @@ const createFournisseur = async (req, res) => {
         const result = fournisseurValidation.safeParse({ ...req.body, sigle: `FRS-00${last?.id ? (last?.id + 1) : 1}` });
 
         if (!result.success) {
-            return res.status(400).json({
+            return res.status(402).json({
                 errors: result.error.format()
             });
         }
@@ -42,7 +40,7 @@ const createFournisseur = async (req, res) => {
         // traitement du sigle
         if (result.data?.sigle) {
             let fournisseur = await prisma.fournisseur.findFirst({
-                where: { sigle: result.data?.sigle }
+                where: { sigle: result.data?.sigle, deletedAt: null }
             });
 
             if (fournisseur) {
@@ -53,7 +51,7 @@ const createFournisseur = async (req, res) => {
         // traitement du raison_sociale
         if (result.data?.raison_sociale) {
             let fournisseur = await prisma.fournisseur.findFirst({
-                where: { raison_sociale: result.data?.raison_sociale }
+                where: { raison_sociale: result.data?.raison_sociale, deletedAt: null }
             });
 
             if (fournisseur) {
@@ -64,7 +62,7 @@ const createFournisseur = async (req, res) => {
         // traitement du phone
         if (result.data?.phone) {
             let fournisseur = await prisma.fournisseur.findFirst({
-                where: { phone: result.data?.phone }
+                where: { phone: result.data?.phone, deletedAt: null }
             });
 
             if (fournisseur) {
@@ -75,7 +73,7 @@ const createFournisseur = async (req, res) => {
         // traitement du email
         if (result.data?.email) {
             let fournisseur = await prisma.fournisseur.findFirst({
-                where: { email: result.data?.email }
+                where: { email: result.data?.email, deletedAt: null }
             });
 
             if (fournisseur) {
@@ -108,7 +106,7 @@ const updateFournisseur = async (req, res) => {
         const result = fournisseurValidation.safeParse(req.body);
 
         if (!result.success) {
-            return res.status(400).json({
+            return res.status(402).json({
                 errors: result.error.format()
             });
         }

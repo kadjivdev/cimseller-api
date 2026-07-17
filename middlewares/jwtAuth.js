@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 const jwtAuth = (req, res, next) => {
     const token = req.cookies?.access_token;
 
+    // console.log("Access token from JwtAuth :", token)
+
     if (!token) {
         return res.status(401).json({ error: 'Accès réfusé! Token invalide!' });
     }

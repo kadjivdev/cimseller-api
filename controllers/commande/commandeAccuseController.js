@@ -11,7 +11,7 @@ const formatData = (accuse) => ({
     preuve: accuse.preuve ? `${process.env.BASE_URL}/public/uploads/${accuse.preuve}` : null
 })
 
-const UPLOADS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..','..', 'public', 'uploads')
+const UPLOADS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'uploads')
 
 const deletePreuve = async (accuse) => {
     console.log("Suppression de la preuve de l'accuse :", accuse)
@@ -45,80 +45,117 @@ const getCommandeAccuses = async (req, res) => {
     }
 };
 
-// create a new commandeAccuse in the database and log the result
-const createCommandeAccuse = async (req, res) => {
+// retrieve a commandeAccuse in the database and log the result
+const retrieveCommandeAccuse = async (req, res) => {
     console.log('Request body:', req.body); // Log the incoming request body
+
+    let { id } = req.params
 
     await prisma.$transaction(async (tx) => {
         try {
-            // validation
-            const last = await tx.commandeAccuses.findFirst({
-                orderBy: { id: 'desc' },
-                where: { deletedAt: null },
-                select: { id: true }
-            });
-            const resultCommandeAccuse = commandeAccuseValidation.safeParse({
-                ...req.body,
-                code: `BCA-00${last?.id ? (last?.id + 1) : 1}`
-            });
-
-            if (!resultCommandeAccuse.success) {
-                return res.status(400).json({
-                    errors: resultCommandeAccuse.error.format()
-                });
-            }
-
-            // traitement de la commande
-            if (resultCommandeAccuse.data?.commandeId) {
-                const commande = await tx.commande.findFirst({
-                    where: { id: resultCommandeAccuse.data.commandeId, deletedAt: null },
-                    select: { id: true },
-                });
-
-                if (!commande) {
-                    return res.status(404).json({ error: 'Cette commande n\'existe pas' });
+            // found
+            const commandeAccuseFound = await tx.commandeAccuses.findFirst({
+                where: { id: parseInt(id), deletedAt: null },
+                include: {
+                    commande: true,
+                    typeDocument: true,
                 }
-            }
+            })
+            if (!commandeAccuseFound) return res.status(400).json({ error: " Cet accuse de commande n'existe pas!" })
 
-            // traitement du type de document
-            if (resultCommandeAccuse.data?.typeDocumentId) {
-                const type = await tx.typeDocument.findFirst({
-                    where: { id: resultCommandeAccuse.data?.typeDocumentId },
-                    select: { id: true },
-                });
-
-                if (!type) {
-                    return res.status(404).json({ error: 'Ce type de document n\'existe pas' });
-                }
-            }
-
-            // traitement de la reference
-            if (resultCommandeAccuse.data?.reference) {
-                let accuse = await tx.commandeAccuses.findFirst({
-                    where: { reference: resultCommandeAccuse.data?.reference },
-                });
-
-                if (accuse) {
-                    return res.status(409).json({ error: 'Cette reference existe déjà' });
-                }
-            }
-
-            // insertion de l'accuse
-            const newCommandeAccuse = await tx.commandeAccuses.create({
-                data: {
-                    ...resultCommandeAccuse.data,
-                    preuve: req.file?.filename,
-                },
-            });
-
-            res.status(201).json(newCommandeAccuse);
+            res.status(201).json(commandeAccuseFound);
         } catch (error) {
-            console.error('Failed to create commande accuse:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to create commande accuse' });
+            console.error('Failed to update accuse commande :', error);
+            res.status(500).json({ error: error.message || 'Failed to update accuse commande' });
             throw error;
         }
     })
+};
+
+// create a new commandeAccuse in the database and log the result
+const createCommandeAccuse = async (req, res) => {
+    console.log('Début d\'insersion de reçu', req.body);
+    let user = req.user?.user;
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+
+            const commandeFound = await tx.commande.findFirst({
+                where: { id: req.body?.commandeId, deletedAt: null },
+                include: {
+                    commandeDetails: true,
+                    commandeRecus: true,
+                }
+            });
+
+            if (!commandeFound) {
+                throw { statusCode: 404, payload: { error: "Cette commande n'existe pas" } };
+            }
+
+            await tx.commandeAccuses.deleteMany({
+                where: { commandeId: commandeFound.id }
+            });
+
+            let nouveauxAcusses = []
+
+            for (const [index, ac] of (req.body?.accuses ?? []).entries()) {
+                console.log("L'index :", index);
+                console.log("L'accuse :", ac);
+
+                const last = await tx.commandeAccuses.findFirst({
+                    orderBy: { id: 'desc' },
+                    select: { id: true }
+                });
+
+                const resultCommandeAccuse = commandeAccuseValidation.safeParse({
+                    ...ac,
+                    commandeId: commandeFound.id,
+                    code: `BCA-00${last?.id ? (last.id + 1) : 1}`
+                });
+
+                if (!resultCommandeAccuse.success) {
+                    throw { statusCode: 422, payload: { errors: { ...resultCommandeAccuse.error.format(), accuses: { _errors: [`La ligne ${index + 1} est erronnée! Veuillez bien reprendre`] } } } };
+                }
+
+                if (resultCommandeAccuse.data.reference) {
+                    const recuExistant = await tx.commandeAccuses.findFirst({
+                        where: {
+                            reference: resultCommandeAccuse.data.reference,
+                            deletedAt: null
+                        }
+                    });
+
+                    if (recuExistant) {
+                        throw { statusCode: 409, payload: { error: `Cette référence existe déjà (ligne ${index + 1})` } };
+                    }
+                }
+
+                const newCommandeAccuse = await tx.commandeAccuses.create({
+                    data: {
+                        ...resultCommandeAccuse.data,
+                        commandeId: commandeFound.id,
+                        preuve: req.file?.filename,
+                    },
+                });
+
+                console.log("Accusé inséré");
+                nouveauxAcusses.push(newCommandeAccuse);
+            }
+
+            console.log("Fin d'insertion des accuses");
+            return nouveauxAcusses;
+        });
+
+        console.log("Tous les accuses insérés avec succès");
+        return res.status(201).json(result);
+
+    } catch (error) {
+        if (error.statusCode) {
+            return res.status(error.statusCode).json(error.payload);
+        }
+        console.error('Failed to create commande accuse:', error);
+        return res.status(500).json({ error: error.message || 'Failed to create commande accuse' });
+    }
 };
 
 // update a commandeAccuse in the database and log the result
@@ -238,4 +275,4 @@ const deleteCommandeAccuse = async (req, res) => {
     })
 };
 
-export { getCommandeAccuses, createCommandeAccuse, updateCommandeAccuse, deleteCommandeAccuse };
+export { getCommandeAccuses,retrieveCommandeAccuse, createCommandeAccuse, updateCommandeAccuse, deleteCommandeAccuse };

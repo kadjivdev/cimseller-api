@@ -55,9 +55,7 @@ const getDemandes = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch demandes' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
-    }
+    } 
 };
 
 // create a new demandes in the database and log the result

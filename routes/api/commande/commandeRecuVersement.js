@@ -1,6 +1,6 @@
 // import express from 'express';
 import { Router } from 'express';
-import { getCommandeRecuVersements, createCommandeRecuVersement, updateCommandeRecuVersement, deleteCommandeRecuVersement } from '../../../controllers/commande/commandeRecuVersementController.js';
+import { getCommandeRecuVersements, retrieveCommandeRecuVersement, createCommandeRecuVersement, updateCommandeRecuVersement, deleteCommandeRecuVersement } from '../../../controllers/commande/commandeRecuVersementController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
@@ -20,6 +20,7 @@ router.route("/")
     .post(jwtAuth, handlePreuveUpload, createCommandeRecuVersement);
 
 router.route("/:id")
+    .get(jwtAuth, retrieveCommandeRecuVersement)
     .put(jwtAuth, handlePreuveUpload, updateCommandeRecuVersement)
     .delete(jwtAuth, deleteCommandeRecuVersement);
 

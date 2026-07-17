@@ -64,22 +64,20 @@ const getVentes = async (req, res) => {
             orderBy: { id: 'desc' },
             include: {
                 //  relations
-                commandeClient: true,
-                client: true,
-                produit: true,
+                // commandeClient: true,
+                client: {
+                    id: true,
+                    raison_sociale: true
+                },
+                produit: {
+                    id: true,
+                    name: true
+                },
                 statut: true,
                 type: true,
                 typeFactureVente: true,
-                reglements: true,
                 venteComptability: true,
-                reglements: true,
-                treatedBy: {
-                    select: {
-                        fullname: true,
-                        email: true,
-                        createdAt: true
-                    }
-                },
+
                 createdBy: {
                     select: {
                         fullname: true,
@@ -101,6 +99,24 @@ const getVentes = async (req, res) => {
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch ventes' });
+        throw error;
+    }
+};
+
+// Get all validated ventes from the database and log them
+const getValidatedVentes = async (req, res) => {
+    console.log("Getting validated ventes")
+
+    try {
+        const ventes = await prisma.vente.findMany({
+            where: { statutId: 2, deletedAt: null },
+            orderBy: { id: 'desc' },
+        });
+
+        res.json(ventes);
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated ventes' });
         throw error;
     }
 };
@@ -227,7 +243,7 @@ const createVente = async (req, res) => {
                     }
                 });
             }
-            
+
             console.log("commandeClient :", commandeClient)
 
             // insertion de la vente
@@ -243,6 +259,64 @@ const createVente = async (req, res) => {
             });
 
             res.status(201).json(newVente);
+        } catch (error) {
+            console.error('Failed to create vente:', error);
+
+            res.status(500).json({ error: error.message || 'Failed to create vente' });
+            throw error;
+        }
+    })
+};
+
+// retrieve a vente in the database and log the result
+const retrieveVente = async (req, res) => {
+    console.log('Request body:', req.body); // Log the incoming request body
+
+    let { id } = req.params
+
+    await prisma.$transaction(async (tx) => {
+
+        try {
+            // found
+            const venteFound = await tx.vente.findFirst({
+                where: { id: parseInt(id), deletedAt: null },
+                include: {
+                    commandeClient: true,
+                    client: true,
+                    produit: true,
+                    statut: true,
+                    type: true,
+                    typeFactureVente: true,
+                    reglements: true,
+                    venteComptability: true,
+                    reglements: true,
+                    treatedBy: {
+                        select: {
+                            fullname: true,
+                            email: true,
+                            createdAt: true
+                        }
+                    },
+                    createdBy: {
+                        select: {
+                            fullname: true,
+                            email: true,
+                            createdAt: true
+                        }
+                    },
+                    validatedBy: {
+                        select: {
+                            fullname: true,
+                            email: true,
+                            createdAt: true
+                        }
+                    }
+                }
+            })
+
+            if (!venteFound) return res.status(400).json({ error: " Cette vente n'existe pas!" })
+
+            res.status(201).json(venteFound);
         } catch (error) {
             console.error('Failed to create vente:', error);
 
@@ -355,7 +429,7 @@ const updateVente = async (req, res) => {
                     ...resultVente.data,
                     montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
                     preuve: req.file ? req.file.filename : venteFound.preuve,
-                    commandeClient:{
+                    commandeClient: {
                         update: {
                             montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
                             typeCommandeClientId: resultVente.data?.typeId,
@@ -395,7 +469,8 @@ const validateVente = async (req, res) => {
                 where: { deletedAt: null, id: parseInt(id) },
                 data: {
                     validatedAt: new Date(),
-                    validatedById: req.user?.user?.id
+                    validatedById: req.user?.user?.id,
+                    statutId: 2
                 }
             });
             res.status(200).json({ message: 'Vente validée avec succès!' });
@@ -437,4 +512,4 @@ const deleteVente = async (req, res) => {
     })
 };
 
-export { getVentes, createVente, updateVente, validateVente, deleteVente };
+export { getVentes, getValidatedVentes, createVente, updateVente, validateVente, deleteVente };

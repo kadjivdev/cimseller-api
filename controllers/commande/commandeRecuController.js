@@ -33,9 +33,8 @@ const getCommandeRecus = async (req, res) => {
             orderBy: { id: 'desc' },
             include: {
                 //  relations
-                commande: true,
                 createdBy: true,
-                versements: true
+                commande: true,
             }
         });
 
@@ -44,72 +43,144 @@ const getCommandeRecus = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch commandeRecus' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
     }
+};
+
+// retrieve a commandeRecu in the database and log the result
+const retrieveCommandeRecu = async (req, res) => {
+    console.log('Request body:', req.body); // Log the incoming request body
+
+    let { id } = req.params
+
+    await prisma.$transaction(async (tx) => {
+        try {
+            // found
+            const commandeRecuFound = await tx.commandeRecu.findFirst({
+                where: { id: parseInt(id), deletedAt: null },
+                include: {
+                    commande: true,
+                    createdBy: true,
+                    versements: {
+                        select: {
+                            id: true,
+                            code: true,
+                            date:true,
+                            compte: true,
+                            typeDetailRecu: true
+                        },
+                    }
+                }
+            })
+            if (!commandeRecuFound) return res.status(400).json({ error: " Cette commande reçu n'existe pas!" })
+
+            res.status(201).json(commandeRecuFound);
+        } catch (error) {
+            console.error('Failed to retrieve commande reçu:', error);
+
+            res.status(500).json({ error: error.message || 'Failed to create commande reçu' });
+            throw error;
+        }
+    })
 };
 
 // create a new commandeRecu in the database and log the result
 const createCommandeRecu = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
-    let user = req.user?.user
+    console.log('Début d\'insersion de reçu', req.body);
+    let user = req.user?.user;
 
-    await prisma.$transaction(async (tx) => {
-        try {
-            // validation
-            const last = await tx.commandeRecu.findFirst({
-                orderBy: { id: 'desc' },
-                select: { id: true }
-            });
-            const resultCommandeRecu = commandeRecuValidation.safeParse({ ...req.body, code: `BCR-00${last?.id ? (last?.id + 1) : 1}` });
+    try {
+        const result = await prisma.$transaction(async (tx) => {
 
-            console.log("resultCommandeRecu :", resultCommandeRecu.data)
-
-            if (!resultCommandeRecu.success) {
-                return res.status(400).json({
-                    errors: resultCommandeRecu.error.format()
-                });
-            }
-
-            // traitement du commande
-            if (resultCommandeRecu.data?.commandeId) {
-                let commande = await tx.commande.findFirst({
-                    where: { id: resultCommandeRecu.data?.commandeId, deletedAt: null }
-                });
-
-                if (!commande) {
-                    return res.status(404).json({ error: 'Cette commande n\'existe pas' });
+            const commandeFound = await tx.commande.findFirst({
+                where: { id: req.body?.commandeId, deletedAt: null },
+                include: {
+                    commandeDetails: true,
+                    commandeRecus: true,
                 }
-            }
-
-            // traitement de la reference
-            if (resultCommandeRecu.data?.reference) {
-                let recu = await prisma.commandeRecu.findFirst({
-                    where: { reference: resultCommandeRecu.data?.reference }
-                });
-
-                if (recu) {
-                    return res.status(404).json({ error: 'Cette reference existe déjà' });
-                }
-            }
-
-            // insertion de la commande reçu
-            const newCommandeRecu = await tx.commandeRecu.create({
-                data: {
-                    ...resultCommandeRecu.data,
-                    preuve: req.file?.filename,
-                    createdById: user?.id
-                },
             });
 
-            res.status(201).json(newCommandeRecu);
-        } catch (error) {
-            console.error('Failed to create commande recu:', error);
+            if (!commandeFound) {
+                throw { statusCode: 404, payload: { error: "Cette commande n'existe pas" } };
+            }
 
-            res.status(500).json({ error: error.message || 'Failed to create commande recu' });
-            throw error;
+            await tx.commandeRecu.deleteMany({
+                where: { commandeId: commandeFound.id }
+            });
+
+            const qteTotalCommander = commandeFound.commandeDetails?.reduce((qte, cd) => qte + cd.qteCommande, 0) ?? 0;
+
+            // cumul qui progresse au fil de la boucle (les anciens reçus ont été supprimés, donc on repart de 0)
+            let qteCumulee = 0;
+            const nouveauxRecus = [];
+
+            for (const [index, rc] of (req.body?.recus ?? []).entries()) {
+                console.log("L'index :", index);
+                console.log("Le reçu :", rc);
+
+                const last = await tx.commandeRecu.findFirst({
+                    orderBy: { id: 'desc' },
+                    select: { id: true }
+                });
+
+                const resultCommandeRecu = commandeRecuValidation.safeParse({
+                    ...rc,
+                    commandeId: commandeFound.id,
+                    code: `BCR-00${last?.id ? (last.id + 1) : 1}`
+                });
+
+                if (!resultCommandeRecu.success) {
+                    throw { statusCode: 422, payload: { errors: { ...resultCommandeRecu.error.format(), recus: { _errors: [`La ligne ${index + 1} est erronnée! Veuillez bien reprendre`] } } } };
+                }
+
+                if (resultCommandeRecu.data.reference) {
+                    const recuExistant = await tx.commandeRecu.findFirst({
+                        where: {
+                            reference: resultCommandeRecu.data.reference,
+                            deletedAt: null
+                        }
+                    });
+
+                    if (recuExistant) {
+                        throw { statusCode: 409, payload: { error: `Cette référence existe déjà (ligne ${index + 1})` } };
+                    }
+                }
+
+                qteCumulee += resultCommandeRecu.data.tonnage;
+
+                if (qteCumulee > qteTotalCommander) {
+                    throw {
+                        statusCode: 400,
+                        payload: { error: `La quantité totale reçue (${qteCumulee}) serait supérieure à la quantité totale commandée (${qteTotalCommander})` }
+                    };
+                }
+
+                const newCommandeRecu = await tx.commandeRecu.create({
+                    data: {
+                        ...resultCommandeRecu.data,
+                        commandeId: commandeFound.id,
+                        preuve: req.file?.filename,
+                        createdById: user?.id
+                    },
+                });
+
+                console.log("Reçu inséré");
+                nouveauxRecus.push(newCommandeRecu);
+            }
+
+            console.log("Fin d'insertion des recus");
+            return nouveauxRecus;
+        });
+
+        console.log("Tous les recus insérés avec succès");
+        return res.status(201).json(result);
+
+    } catch (error) {
+        if (error.statusCode) {
+            return res.status(error.statusCode).json(error.payload);
         }
-    })
+        console.error('Failed to create commande recu:', error);
+        return res.status(500).json({ error: error.message || 'Failed to create commande recu' });
+    }
 };
 
 // update a commandeRecu in the database and log the result
@@ -216,4 +287,4 @@ const deleteCommandeRecu = async (req, res) => {
     })
 };
 
-export { getCommandeRecus, createCommandeRecu, updateCommandeRecu, deleteCommandeRecu };
+export { getCommandeRecus, retrieveCommandeRecu, createCommandeRecu, updateCommandeRecu, deleteCommandeRecu };

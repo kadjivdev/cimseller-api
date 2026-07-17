@@ -5,6 +5,7 @@ import path, { dirname } from 'path';
 import fs from 'fs';
 import { reglementValidation } from '../../database/validations/compte/reglementValidation.js';
 import { fileURLToPath } from 'url';
+import { error } from 'console';
 
 const formatData = (recu) => ({
     ...recu,
@@ -33,38 +34,55 @@ const getReglements = async (req, res) => {
             orderBy: { id: 'desc' },
             include: {
                 //  relations
-                vente: true,
-                client: true,
-                compteBancaire: true,
+                vente: {
+                    select: {
+                        id: true,
+                        code: true
+                    }
+                },
+                client: {
+                    select: {
+                        id: true,
+                        raison_sociale: true
+                    }
+                },
+                compteBancaire: {
+                    select: {
+                        id: true,
+                        intitule: true,
+                        numero: true
+                    }
+                },
                 createdBy: {
                     select: {
                         fullname: true,
-                        email: true
                     }
                 },
                 validatedBy: {
                     select: {
                         fullname: true,
-                        email: true
                     }
                 },
-                typeDetailRecu: true
+                typeDetailRecu: {
+                    select: {
+                        name: true
+                    }
+                }
             }
         });
 
+        console.log("Reglements recuperes avec succès!")
         res.json(reglements.map(formatData));
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch reglements' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
     }
 };
 
 // create a new reglement in the database and log the result
 const createReglement = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Début d\'insertion des reglements:', req.body); // Log the incoming request body
     let user = req.user?.user
 
     await prisma.$transaction(async (tx) => {
@@ -94,21 +112,22 @@ const createReglement = async (req, res) => {
                     return res.status(404).json({ error: 'Cette vente n\'existe pas' });
                 }
 
-                if (!vente.validatedAt) {
+                if (!vente.validatedAt || !vente.validatedById || vente.statutId != 2) {
                     return res.status(404).json({ error: 'Cette vente n\'est pas validée' });
                 }
             }
 
 
             // traitement du client
-            if (resultReglement.data?.clientId) {
-                let client = await tx.client.findFirst({
-                    where: { id: resultReglement.data?.clientId, deletedAt: null }
-                });
-
-                if (!client) {
-                    return res.status(404).json({ error: 'Ce client n\'existe pas' });
+            const client = await tx.client.findFirst({
+                where: { id: resultReglement.data?.clientId, deletedAt: null },
+                include: {
+                    oldDette: true
                 }
+            });
+
+            if (!client) {
+                return res.status(404).json({ error: 'Ce client n\'existe pas' });
             }
 
             // traitement du compte bancaire
@@ -144,6 +163,16 @@ const createReglement = async (req, res) => {
                 }
             }
 
+            /**
+             * verification du contournement du solde ancien
+             * on verifie si le client avait une dette ancienne
+             * si oui on verifie si le user a choisi de contourner la dette ancienne
+             *  */
+            let clientOldDette = client?.oldDette?.dette - client?.oldDette?.solved
+            if (clientOldDette > 0 && !req.body?.deblocDette) {
+                return res.status(400).json({ error: `Le Client ${client.raison_sociale} dispose d'une dette ancienne de ${clientOldDette.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} Fcfa. Veuillez vous rendre sur son compte pour régler cette ancienne dette d'abord.` })
+            }
+
             // insertion du reglement de la base de données et log du résultat
             const newReglement = await tx.reglement.create({
                 data: {
@@ -153,6 +182,7 @@ const createReglement = async (req, res) => {
                 },
             });
 
+            console.log("Fin d'insertion des règlements")
             res.status(201).json(newReglement);
         } catch (error) {
             console.error('Failed to create reglement:', error);
@@ -206,14 +236,15 @@ const updateReglement = async (req, res) => {
             }
 
             // traitement du client
-            if (resultReglement.data?.clientId) {
-                let client = await tx.client.findFirst({
-                    where: { id: resultReglement.data?.clientId }
-                });
-
-                if (!client) {
-                    return res.status(404).json({ error: 'Ce client n\'existe pas' });
+            let client = await tx.client.findFirst({
+                where: { id: resultReglement.data?.clientId },
+                include: {
+                    oldDette: true
                 }
+            });
+
+            if (!client) {
+                return res.status(404).json({ error: 'Ce client n\'existe pas' });
             }
 
             // traitement du compte bancaire
@@ -249,6 +280,16 @@ const updateReglement = async (req, res) => {
                 }
             }
 
+            /**
+            * verification du contournement du solde ancien
+            * on verifie si le client avait une dette ancienne
+            * si oui on verifie si le user a choisi de contourner la dette ancienne
+            *  */
+            let clientOldDette = client?.oldDette?.dette - client?.oldDette?.solved
+            if (clientOldDette > 0 && !req.body?.deblocDette) {
+                return res.status(400).json({ error: `Le Client ${client.raison_sociale} dispose d'une dette ancienne de ${clientOldDette.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} Fcfa. Veuillez vous rendre sur son compte pour régler cette ancienne dette d'abord.` })
+            }
+
             // modification du reglement de la base de données et log du résultat
             const updatedReglement = await tx.reglement.update({
                 where: { id: parseInt(id), deletedAt: null },
@@ -270,13 +311,13 @@ const updateReglement = async (req, res) => {
 
 // valider un reglement from the database and log the result
 const validerReglement = async (req, res) => {
-
+    console.log("Début de validation d'un reglement :", req.body)
     await prisma.$transaction(async (tx) => {
         const { id } = req.params;
 
-        if (!req.body?.validationComment) {
-            return res.status(400).json({ error: 'Le commentaire de validation est requis' });
-        }
+        // if (!req.body?.validationComment) {
+        //     return res.status(400).json({ error: 'Le commentaire de validation est requis' });
+        // }
 
         try {
             let reglementFound = await tx.reglement.findUnique({
@@ -285,6 +326,11 @@ const validerReglement = async (req, res) => {
             if (!reglementFound) return res.status(404).json({ error: 'Reglement non trouvé' });
 
             if (reglementFound.validatedAt) return res.status(400).json({ error: 'Cet reglement est déjà validé' });
+
+            // traitement du client
+            let client = await tx.client.findFirst({
+                where: { id: reglementFound?.clientId },
+            });
 
             // validation du reglement de la base de données et log du résultat
             await tx.reglement.update({
@@ -299,6 +345,7 @@ const validerReglement = async (req, res) => {
             // suppression de la preuve du reçu
             await deletePreuve(reglementFound)
 
+            console.log("Fin de validation de reglement")
             res.status(200).json({ message: 'Reglement validé avec succès!' });
         } catch (error) {
             console.error('Failed to validate reglement:', error);

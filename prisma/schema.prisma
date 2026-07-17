@@ -99,6 +99,7 @@ model Permission {
 model Commande {
   id            Int       @id @default(autoincrement())
   code          String?
+  reference     String?
   date          DateTime
   montant       Float?
   validatedAt   DateTime?
@@ -140,9 +141,11 @@ model CommandeDetail {
   updatedAt DateTime  @updatedAt
 
   // relations
-  commande  Commande     @relation(fields: [commandeId], references: [id])
-  product   TypeProduit? @relation(fields: [productId], references: [id])
-  createdBy User?        @relation("CommandeDetailCreatedBy", fields: [createdById], references: [id])
+  commande      Commande     @relation(fields: [commandeId], references: [id])
+  product       Produit?     @relation(fields: [productId], references: [id])
+  createdBy     User?        @relation("CommandeDetailCreatedBy", fields: [createdById], references: [id])
+  typeProduit   TypeProduit? @relation(fields: [typeProduitId], references: [id])
+  typeProduitId Int?
 
   @@map("commande_details")
 }
@@ -157,7 +160,7 @@ model CommandeRecu {
   tonnage     Float
   montant     Float
   preuve      String?
-  qteRecu     Int
+  qteRecu     Int?
   createdById Int?
 
   deletedAt DateTime?
@@ -203,6 +206,7 @@ model CommandeAccuses {
   libelle        String?
   date           DateTime
   preuve         String?
+  montant        Float?
   typeDocumentId Int?
   deletedAt      DateTime?
   createdAt      DateTime  @default(now())
@@ -596,8 +600,25 @@ model Client {
   approvisionnements        Approvisionnement[]
   demandeModificationVentes DemandeModificationVente[]
   demandeSuppressionVentes  DemandeSuppressionVente[]
+  oldDette                  OldDette?
 
   @@map("clients")
+}
+
+model OldDette {
+  id       Int    @id @default(autoincrement())
+  clientId Int    @unique
+  dette    Float?
+  solved   Float?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // relations
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("olddettes")
 }
 
 model Banque {
@@ -646,8 +667,9 @@ model Produit {
   updatedAt DateTime  @updatedAt
 
   // relations
-  type   TypeProduit? @relation(fields: [typeId], references: [id])
-  ventes Vente[]
+  type           TypeProduit?     @relation(fields: [typeId], references: [id])
+  ventes         Vente[]
+  commandDetails CommandeDetail[]
 
   @@map("produits")
 }
@@ -675,6 +697,7 @@ model Representant {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  zones     Zone[]
 
   @@map("representants")
 }
@@ -684,15 +707,17 @@ model Representant {
  */
 
 model Zone {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
+  id             Int     @id @default(autoincrement())
+  name           String  @unique
+  description    String?
+  representantId Int?
 
   deletedAt      DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   clients        Client[]
   programmations Programmation[]
+  representant   Representant?   @relation(fields: [representantId], references: [id])
 
   @@map("zones")
 }

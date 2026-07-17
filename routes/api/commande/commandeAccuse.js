@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCommandeAccuses, createCommandeAccuse, updateCommandeAccuse, deleteCommandeAccuse } from '../../../controllers/commande/commandeAccuseController.js';
+import { getCommandeAccuses, retrieveCommandeAccuse, createCommandeAccuse, updateCommandeAccuse, deleteCommandeAccuse } from '../../../controllers/commande/commandeAccuseController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
@@ -19,6 +19,7 @@ router.route("/")
     .post(jwtAuth, handlePreuveUpload, createCommandeAccuse);
 
 router.route("/:id")
+    .get(jwtAuth, retrieveCommandeAccuse)
     .put(jwtAuth, handlePreuveUpload, updateCommandeAccuse)
     .delete(jwtAuth, deleteCommandeAccuse);
 

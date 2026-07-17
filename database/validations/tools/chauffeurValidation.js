@@ -5,12 +5,12 @@ const chauffeurValidation = z.object({
         .string("Le nom doit être une chaîne")
         .nonempty("Le nom est requis"),
 
-    permis: z
-        .string("Le permis doit être de type string")
-        .optional(),
+    // permis: z
+    //     .string("Le permis doit être de type string")
+    //     .optional(),
 
     phone: z
-        .string("Le permis doit être de type string")
+        .string("Le numéro de téléphone doit être de type string")
         .optional(),
 
 });

@@ -33,21 +33,34 @@ const getApprovisionnements = async (req, res) => {
             orderBy: { id: 'desc' },
             include: {
                 //  relations
-                client: true,
-                compteBancaire: true,
+                client: {
+                    select: {
+                        id: true,
+                        raison_sociale: true
+                    }
+                },
+                compteBancaire: {
+                    select: {
+                        id: true,
+                        intitule: true,
+                        numero: true
+                    }
+                },
                 createdBy: {
                     select: {
                         fullname: true,
-                        email: true
                     }
                 },
                 validatedBy: {
                     select: {
                         fullname: true,
-                        email: true
                     }
                 },
-                typeDetailRecu: true
+                typeDetailRecu: {
+                    select: {
+                        name: true
+                    }
+                }
             }
         });
 
@@ -56,15 +69,14 @@ const getApprovisionnements = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch approvisionnements' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
-    }
+    } 
 };
 
 // create a new approvisionnement in the database and log the result
 const createApprovisionnement = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Début de créatio d\'approvisionnement body:', req.body); // Log the incoming request body
     let user = req.user?.user
+    console.log("Le user :", req.user)
 
     await prisma.$transaction(async (tx) => {
         try {
@@ -74,8 +86,6 @@ const createApprovisionnement = async (req, res) => {
                 select: { id: true }
             });
             const resultApprovisionnement = approvisionnementValidation.safeParse({ ...req.body, code: `APR-00${last?.id ? (last?.id + 1) : 1}` });
-
-            console.log("resultApprovisionnement :", resultApprovisionnement.data)
 
             if (!resultApprovisionnement.success) {
                 return res.status(400).json({
@@ -136,6 +146,7 @@ const createApprovisionnement = async (req, res) => {
                 },
             });
 
+            console.log("Approvisionnement effectué avec succès:", newApprovsionnement)
             res.status(201).json(newApprovsionnement);
         } catch (error) {
             console.error('Failed to create approvisionnement:', error);
@@ -239,12 +250,9 @@ const updateApprovisionnement = async (req, res) => {
 // valider un approvsionnement from the database and log the result
 const validerApprovisionnement = async (req, res) => {
 
+    console.log("Debut de validation ", req.body)
     await prisma.$transaction(async (tx) => {
         const { id } = req.params;
-
-        if (!req.body?.validationComment) {
-            return res.status(400).json({ error: 'Le commentaire de validation est requis' });
-        }
 
         try {
             let approvisionnementFound = await tx.approvisionnement.findUnique({
@@ -267,6 +275,7 @@ const validerApprovisionnement = async (req, res) => {
             // suppression de la preuve du reçu
             await deletePreuve(approvisionnementFound)
 
+            console.log("Fin de la validation")
             res.status(200).json({ message: 'Approvisionnement validé avec succès!' });
         } catch (error) {
             console.error('Failed to validate approvisionnement:', error);

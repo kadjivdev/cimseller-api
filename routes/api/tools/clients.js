@@ -18,6 +18,7 @@ const uploadExcelFile = (req, res, next) => {
         { name: 'clients', maxCount: 1 },
         { name: 'file', maxCount: 1 },
     ])(req, res, (err) => {
+        console.log("uploadExcelFile :", req)
         if (!err) return next();
         if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({ error: 'Fichier trop volumineuse' });

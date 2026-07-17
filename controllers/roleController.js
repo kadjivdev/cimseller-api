@@ -9,18 +9,11 @@ const getRoles = async (req, res) => {
         const roles = await prisma.role.findMany({
             where: { deletedAt: null },
             orderBy: { createdAt: 'desc' },
-            include: {
-                users: true,
-                // many-to-many relation
-                permissions: {
-                    include: { permission: true }
-                }
-            }
         });
 
         const formattedRoles = roles.map((role) => ({
             ...role,
-            permissions: role.permissions.map((rolePermission) => rolePermission.permission)
+            permissions: role.permissions?.map((rolePermission) => rolePermission.permission)
         }));
 
         res.json(formattedRoles);
@@ -31,9 +24,42 @@ const getRoles = async (req, res) => {
     }
 };
 
+// retrieve a role in the database and log the result
+const retrieveRole = async (req, res) => {
+    console.log('Request body:', req.body); // Log the incoming request body
+
+    let { id } = req.params
+
+    try {
+        let roleFound = await prisma.role.findUnique(
+            {
+                where: { id: parseInt(id) },
+                include: {
+                    users: true,
+                    // many-to-many relation
+                    permissions: {
+                        include: { permission: true }
+                    }
+                }
+            }
+        )
+
+        if (!roleFound) return res.status(404).json("Ce rôle n'existe pas!")
+        res.json({
+            ...roleFound,
+            permissions: roleFound.permissions?.map((per) => per.permission)
+        });
+    } catch (error) {
+        console.error('Failed to create role:', error);
+
+        res.status(500).json({ error: error.message || 'Failed to create role' });
+        throw error;
+    }
+};
+
 // create a new role in the database and log the result
 const createRole = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Debut creation de role :', req.body); // Log the incoming request body
 
     try {
         // validation
@@ -57,6 +83,9 @@ const createRole = async (req, res) => {
         }
 
         let { permissionIds, ...roleData } = result.data
+        if(permissionIds){
+            
+        }
         // insertion
         const newRole = await prisma.role.create({
             data: {
@@ -73,6 +102,8 @@ const createRole = async (req, res) => {
             },
         });
 
+        console.log("Rôle inseré avec succès !")
+
         res.status(201).json(newRole);
     } catch (error) {
         console.error('Failed to create user:', error);
@@ -87,6 +118,7 @@ const createRole = async (req, res) => {
 
 // update a role in the database and log the result
 const updateRole = async (req, res) => {
+    console.log("Debut de modification d'un role")
     console.log('Request body:', req.body); // Log the incoming request body
 
     let { id } = req.params
@@ -113,6 +145,11 @@ const updateRole = async (req, res) => {
                 return res.status(409).json({ error: 'Ce rôle existe déjà' });
             }
         }
+
+        // permission data
+        if (!result.data?.permissionIds) {
+            return res.status(409).json({ error: 'Le champ permissionIds est réquis!' })
+        };
 
         console.log("Data :", result.data)
 
@@ -153,6 +190,7 @@ const updateRole = async (req, res) => {
             },
         });
 
+        console.log("Role modifié avec succès")
         res.json(updatedRole);
     } catch (error) {
         console.error('Failed to create user:', error);
@@ -167,6 +205,7 @@ const updateRole = async (req, res) => {
 
 // delete un role
 const deleteRole = async (req, res) => {
+    console.log("Début de suppression du role")
     const { id } = req.params;
 
     try {
@@ -180,6 +219,8 @@ const deleteRole = async (req, res) => {
             where: { id: parseInt(id) },
             data: { deletedAt: new Date() }
         });
+
+        console.log("Role supprimé avec succès!")
         res.status(200).json({ message: 'Rôle supprimé avec succès!' });
     } catch (error) {
         console.error('Failed to delete rôle:', error);
@@ -187,4 +228,4 @@ const deleteRole = async (req, res) => {
     }
 };
 
-export { getRoles, createRole, updateRole, deleteRole };
+export { getRoles, createRole, updateRole, retrieveRole, deleteRole };

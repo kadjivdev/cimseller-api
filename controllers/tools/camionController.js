@@ -8,6 +8,9 @@ const getCamions = async (req, res) => {
     try {
         const camions = await prisma.camion.findMany({
             where: { deletedAt: null },
+            include: {
+                marque: true,
+            },
             orderBy: { id: 'desc' },
         });
 
@@ -19,6 +22,7 @@ const getCamions = async (req, res) => {
 };
 
 const createCamion = async (req, res) => {
+    console.log("Debut de la creation des camion : ", req.body)
     try {
         const result = camionValidation.safeParse({
             ...req.body,
@@ -37,14 +41,14 @@ const createCamion = async (req, res) => {
             });
 
             if (!existing) {
-                return res.status(409).json({ error: 'Cette marque n\'existe pas' });
+                return res.json({ error: 'Cette marque n\'existe pas' });
             }
         }
 
         // immatriculation
         if (result.data?.immatriculation) {
             const existing = await prisma.camion.findFirst({
-                where: { immatriculation: result.data.immatriculation },
+                where: { immatriculation: result.data.immatriculation, deletedAt: null },
             });
 
             if (existing) {
@@ -56,9 +60,10 @@ const createCamion = async (req, res) => {
             data: { ...result.data },
         });
 
+        console.log("Camion created successfully:", newCamion);
         res.status(201).json(newCamion);
     } catch (error) {
-        console.error('Failed to create camion:', error);
+        console.log('Failed to create camion:', error);
         res.status(500).json({ error: error.message || 'Failed to create camion' });
     }
 };
@@ -94,7 +99,7 @@ const updateCamion = async (req, res) => {
         // immatriculation
         if (result.data?.immatriculation) {
             const existing = await prisma.camion.findFirst({
-                where: { immatriculation: result.data.immatriculation, NOT: { id: parseInt(id) } },
+                where: { immatriculation: result.data.immatriculation, NOT: { id: parseInt(id) }, deletedAt: null },
             });
 
             if (existing) {
@@ -107,6 +112,7 @@ const updateCamion = async (req, res) => {
             data: { ...result.data },
         });
 
+        console.log("Camion updated successfully:", updatedCamion);
         res.json(updatedCamion);
     } catch (error) {
         console.error('Failed to update camion:', error);

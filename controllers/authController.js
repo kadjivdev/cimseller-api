@@ -8,6 +8,8 @@ dotenv.config();
 
 // Authentification controller
 const login = async (req, res) => {
+    console.log("Début de connexion ......")
+
     const { email, password } = req.body;
     try {
         // validation
@@ -18,17 +20,24 @@ const login = async (req, res) => {
         // recherche de l'utilisateur
         const user = await prisma.user.findFirst({
             where: { email, deletedAt: null },
-            include:{
+            include: {
                 role: {
                     include: {
                         permissions: {
-                            include: { permission: {
-                                select:{id:true, name:true,description:true}
-                            } }
+                            include: {
+                                permission: {
+                                    select: { id: true, name: true, description: true }
+                                }
+                            }
                         }
                     }
                 }
             }
+        });
+
+          // recherche de l'utilisateur pour les cookies
+        const userForCookies = await prisma.user.findFirst({
+            where: { email, deletedAt: null },
         });
 
         if (!user) {
@@ -44,19 +53,20 @@ const login = async (req, res) => {
 
         // suppression du mot de passe
         delete user.password;
+        delete userForCookies.password
 
         /**
          * TODO: générer un token JWT pour l'authentification et l'autorisation
          * Ex: const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
          */
         const access_token = jwt.sign(
-            { user },
+            { user: userForCookies },
             process.env.JWT_SECRET,
             { expiresIn: parseInt(process.env.JWT_EXPIRES_IN) }
         );
 
         const refresh_token = jwt.sign(
-            { user },
+            { userForCookies },
             process.env.JWT_REFRESH_SECRET,
             { expiresIn: parseInt(process.env.JWT_REFRESH_EXPIRES_IN) }
         );
@@ -70,22 +80,30 @@ const login = async (req, res) => {
             }
         });
 
+        const isProduction = process.env.NODE_ENV === "production";
+
         // envoi des tokens dans des cookies sécurisés
         res.cookie("access_token", access_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "None",
+            httpOnly: false,
+            secure: isProduction,
+            // sameSite: "None",
+            sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
             maxAge: parseInt(process.env.JWT_EXPIRES_IN) * 1000 // 1h minutes en ms
         });
 
         res.cookie("refresh_token", refresh_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "None",
+            httpOnly: false,
+            secure: isProduction,
+            // sameSite: "None",
+            sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
             maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN) * 1000 // 1 J en ms
         });
 
-        res.json({ user, message: 'Vous êtes connecté.e' });
+        console.log("Connexion réussie!!")
+        res.json({
+            user,
+            message: 'Vous êtes connecté.e'
+        });
     } catch (error) {
         console.error('Login failed:', error);
         res.status(500).json({ error: 'Failed to login' });
@@ -134,22 +152,42 @@ const refreshToken = async (req, res) => {
 
 // Logout controller
 const logout = async (req, res) => {
+    console.log("Début de déconnexion...")
+
     try {
-        // verification de l'existence du refresh token dans les cookies
-        const { refresh_token } = req.cookies;
-        // console.log("Refresh token:", refresh_token)
+        const { access_token } = req.cookies;
+        console.log("Refresh token:", access_token)
+        // console.log("Cookies:", req.cookies)
 
-        jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
-            if (err) return res.status(500).json("Le refreh token est invalid")
+        if (!access_token) {
+            return res.status(401).json({ error: 'Refresh token is required' });
+        }
 
-            // suppression des cookies
-            res.clearCookie("access_token");
-            res.clearCookie("refresh_token");
+        // Optionnel : supprimer le refresh token stocké en base
+        // await prisma.refreshToken.deleteMany({ where: { token: refresh_token } });
 
-            res.json({ message: 'Logged out successfully' });
-        })
+        const isProduction = process.env.NODE_ENV === "production";
+
+        res.clearCookie("access_token", {
+            httpOnly: false,
+            secure: isProduction,
+            sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prodODE_ENV === "production",
+        });
+
+        res.clearCookie("refresh_token", {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === "production",
+            secure: isProduction,
+            sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prodODE_ENV === "production",
+        });
+
+        console.log("deconnecté.e avec succès")
+        res.json({ message: 'Logged out successfully' });
     } catch (error) {
-        console.error('Logout failed:', error);
+        console.log('Logout failed:', error);
+        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            return res.status(401).json({ error: 'Invalid refresh token' });
+        }
         res.status(500).json({ error: 'Failed to logout' });
     }
 }

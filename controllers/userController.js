@@ -10,24 +10,20 @@ const getUsers = async (req, res) => {
         const users = await prisma.user.findMany({
             where: { deletedAt: null },
             orderBy: { createdAt: 'desc' },
-            include: {
+            select: {
+                id: true,
+                fullname: true,
+                email: true,
+                createdAt: true,
                 role: {
-                    include: {
-                        permissions: {
-                            include: {
-                                permission: {
-                                    select: { id: true, name: true, description: true }
-                                }
-                            }
-                        }
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
                     }
                 }
             }
-        });
-
-        // users.forEach((user) => {
-        //     delete user.password
-        // })
+        })
 
         res.json(users.map(function (user) {
             delete user.password;//on doit pas afficher le password
@@ -35,7 +31,7 @@ const getUsers = async (req, res) => {
                 ...user,
                 role: user.role ? {
                     ...user.role,
-                    permissions: user.role.permissions.map((rolePermission) => rolePermission.permission)
+                    permissions: user.role.permissions?.map((rolePermission) => rolePermission.permission)
                 } : null
             }
         }));
@@ -43,14 +39,52 @@ const getUsers = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
+    }
+};
+
+// Rerieve users from the database and log them
+const retrieveUsers = async (req, res) => {
+    console.log("Requetes :", req.params)
+    let { id } = req.params
+    try {
+        const user = await prisma.user.findFirst({
+            where: { id: parseInt(id), deletedAt: null },
+            include: {
+                role: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        permissions: {
+                            include: {
+                                permission: {
+                                    select: { id: true, name: true, description: true }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        });
+
+        delete user.password;//on doit pas afficher le password
+        res.json({
+            ...user,
+            role: user.role ? {
+                ...user.role,
+                permissions: user.role.permissions.map((rolePermission) => rolePermission.permission)
+            } : null
+        });
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
+        throw error;
     }
 };
 
 // create a new user in the database and log the result
 const createUser = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Debut de crétion de compte:', req.body); // Log the incoming request body
 
     try {
         // validation
@@ -61,6 +95,13 @@ const createUser = async (req, res) => {
                 errors: result.error.format()
             });
         }
+
+        // ✅ destructure proprement, exclut confirm_password ET password bruts
+        const { confirm_password, password, ...rest } = req.body
+
+        // verification des mots de passe
+        if (confirm_password != password) return res.status(400).json({ message: "Les mots de passe ne sont pas conformes." })
+
 
         // traitement du mail
         if (result.data?.email) {
@@ -91,6 +132,8 @@ const createUser = async (req, res) => {
                 password: await bcrypt.hash(result.data?.password, 10),
             },
         });
+
+        console.log("Compte crée avec succès!")
         res.status(201).json(newUser);
     } catch (error) {
         console.error('Failed to create user:', error);
@@ -105,7 +148,7 @@ const createUser = async (req, res) => {
 
 // import users from a xlsx file and log the result
 const importUsers = async (req, res) => {
-    console.log("Importation des users")
+    console.log("Debut d'Importation des users", req.body)
 
     try {
         await prisma.$transaction(async (tx) => {
@@ -141,6 +184,7 @@ const importUsers = async (req, res) => {
                 skipDuplicates: true,
             });
 
+            console.log("Importation éffectuée avec succès")
             return res.status(201).json({
                 message: "Users imported successfully!",
                 insertedCount: users.length
@@ -155,7 +199,6 @@ const importUsers = async (req, res) => {
 // Update un user
 const updateUser = async (req, res) => {
     const { id } = req.params;
-    console.log('Request body:', req.body); // Log the incoming request body
 
     try {
         let userFound = await prisma.user.findUnique({
@@ -163,28 +206,37 @@ const updateUser = async (req, res) => {
         });
         if (!userFound) return res.status(404).json({ error: 'User non trouvé' });
 
-        let password = req.body.password ? await bcrypt.hash(req.body.password, 10) : userFound.password;
+        // ✅ destructure proprement, exclut confirm_password ET password bruts
+        const { confirm_password, password: rawPassword, ...rest } = req.body
 
-        // validation
-        let data = { fullname: userFound.fullname, email: userFound.email, ...req.body, password };
+        // verification des mots de passe
+        if (confirm_password != rawPassword) return res.status(400).json({ message: "Les mots de passe ne sont pas conformes." })
 
-        // traitement du mail
+        // ✅ hash le mot de passe seulement s'il a été fourni
+        const hashedPassword = rawPassword
+            ? await bcrypt.hash(rawPassword, 10)
+            : userFound.password
+
+        const data = {
+            fullname: userFound.fullname,
+            email: userFound.email,
+            ...rest,
+            password: hashedPassword, // ✅ remis sous la bonne clé "password"
+        }
+
         if (data?.email) {
             let user = await prisma.user.findFirst({
                 where: { email: data?.email, id: { not: parseInt(id) } }
             });
-
             if (user) {
                 return res.status(409).json({ error: 'Ce mail existe déjà' });
             }
         }
 
-        // traitement du roleId
         if (data?.roleId) {
             let roleFound = await prisma.role.findUnique({
                 where: { id: data?.roleId }
             });
-
             if (!roleFound) {
                 return res.status(400).json({ error: 'Rôle non trouvé' });
             }
@@ -193,12 +245,10 @@ const updateUser = async (req, res) => {
         const result = userValidation.safeParse(data);
 
         if (!result.success) {
-            return res.status(400).json({
-                errors: result.error.format()
-            });
+            console.log("Erreur validation :", result.error.format())
+            return res.status(402).json({ errors: result.error.format() });
         }
 
-        // update the user in the database and log the result
         const updatedUser = await prisma.user.update({
             where: { id: parseInt(id) },
             data
@@ -213,6 +263,7 @@ const updateUser = async (req, res) => {
 
 // delete un user
 const deleteUser = async (req, res) => {
+    console.log("Debut de suppression de compte ")
     const { id } = req.params;
 
     try {
@@ -226,6 +277,8 @@ const deleteUser = async (req, res) => {
             where: { id: parseInt(id) },
             data: { deletedAt: new Date() }
         });
+
+        console.log("Compte supprimé avec succès")
         res.status(200).json({ message: 'User supprimé avec succès!' });
     } catch (error) {
         console.error('Failed to delete user:', error);
@@ -233,4 +286,4 @@ const deleteUser = async (req, res) => {
     }
 };
 
-export { getUsers, createUser, updateUser, deleteUser, importUsers };
+export { getUsers, createUser, retrieveUsers, updateUser, deleteUser, importUsers };

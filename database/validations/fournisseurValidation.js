@@ -11,12 +11,14 @@ const fournisseurValidation = z.object({
         .optional(),
 
     phone: z
-        .string("Le telephone doit être une chaîne")
+        .string({ error: "Le telephone doit être une chaîne" })
         .optional(),
 
-    email: z
-        .email("L'email doit être une chaîne")
-        .optional(),
+    email: z.preprocess(
+        (val) => (val === '' || val === null || val === undefined ? undefined : String(val)),
+        z.string("L'email doit être une chaîne")
+            .optional()
+    ),
 
     adresse: z
         .string("L'adresse doit être une chaîne")

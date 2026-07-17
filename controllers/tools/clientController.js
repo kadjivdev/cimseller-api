@@ -52,9 +52,12 @@ const toImageUrl = (filename) =>
 
 const formatClient = (client) => ({
     ...client,
+    approvisionnementAmount: client.approvisionnements?.reduce((a, appro) => (a + appro.montant), 0) ?? 0,
+    reglementAmount: client.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0,
     profil: toImageUrl(client.profil),
 });
 
+// Get all clients
 const getClients = async (req, res) => {
     console.log("Getting clients")
     try {
@@ -64,7 +67,50 @@ const getClients = async (req, res) => {
             include: {
                 zone: true,
                 type: true,
-                statut: true
+                statut: true,
+                approvisionnements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        date: true,
+                        preuve: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
+                reglements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        preuve: true,
+                        vente: {
+                            select: {
+                                id: true,
+                                code: true,
+                                montant: true
+                            }
+                        },
+                        date: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
             }
         });
 
@@ -75,9 +121,203 @@ const getClients = async (req, res) => {
     }
 };
 
+// Get actifs clients
+const getActifClients = async (req, res) => {
+    console.log("Getting actif clients")
+    try {
+        const clients = await prisma.client.findMany({
+            where: { statutId: 1, deletedAt: null },
+            orderBy: { id: 'desc' },
+            include: {
+                zone: true,
+                type: true,
+                statut: true,
+                approvisionnements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        date: true,
+                        preuve: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
+                reglements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        preuve: true,
+                        vente: {
+                            select: {
+                                id: true,
+                                code: true,
+                                montant: true
+                            }
+                        },
+                        date: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
+            }
+        });
+
+        console.log("Clients actifs recuperés avec succès!")
+
+        res.json(clients.map(formatClient));
+    } catch (error) {
+        console.log('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch actif clients' });
+    }
+};
+
+// Get actifs clients
+const getInActifClients = async (req, res) => {
+    console.log("Getting inactif clients")
+    try {
+        const clients = await prisma.client.findMany({
+            where: { statutId: 2, deletedAt: null },
+            orderBy: { id: 'desc' },
+            include: {
+                zone: true,
+                type: true,
+                statut: true,
+                approvisionnements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        date: true,
+                        preuve: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
+                reglements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        preuve: true,
+                        vente: {
+                            select: {
+                                id: true,
+                                code: true,
+                                montant: true
+                            }
+                        },
+                        date: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
+            }
+        });
+
+        res.json(clients.map(formatClient));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch inactifs clients' });
+    }
+};
+
+// Get befs clients
+const getBefClients = async (req, res) => {
+    console.log("Getting bef clients")
+    try {
+        const clients = await prisma.client.findMany({
+            where: { statutId: 3, deletedAt: null },
+            orderBy: { id: 'desc' },
+            include: {
+                zone: true,
+                type: true,
+                statut: true,
+                approvisionnements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        date: true,
+                        preuve: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
+                reglements: {
+                    where: { NOT: { validatedAt: null } },
+                    select: {
+                        id: true,
+                        code: true,
+                        reference: true,
+                        montant: true,
+                        preuve: true,
+                        vente: {
+                            select: {
+                                id: true,
+                                code: true,
+                                montant: true
+                            }
+                        },
+                        date: true,
+                        comment: true,
+                        compteBancaire: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        typeDetailRecu: true,
+                        createdAt: true,
+                        validatedAt: true,
+                    }
+                },
+            }
+        });
+
+        res.json(clients.map(formatClient));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch befs clients' });
+    }
+};
+
 // create client in the database and log the result
 const createClient = async (req, res) => {
-    console.log("Req body : ", req.body)
+    console.log("Début insertion de client : ", req.body)
 
     try {
         await prisma.$transaction(async (tx) => {
@@ -95,7 +335,7 @@ const createClient = async (req, res) => {
             });
 
             if (!result.success) {
-                return res.status(400).json({
+                return res.status(402).json({
                     errors: result.error.format(),
                 });
             }
@@ -126,6 +366,8 @@ const createClient = async (req, res) => {
                 data: { ...result.data },
             });
 
+
+            console.log("Fin d'insertion de client")
             res.status(201).json(newClient);
         })
     } catch (error) {
@@ -136,7 +378,7 @@ const createClient = async (req, res) => {
 
 // import clients from a xlsx file and log the result
 const importClients = async (req, res) => {
-    console.log("Importation des clients")
+    console.log("Début d'Importation des clients :", req.body)
 
     try {
         await prisma.$transaction(async (tx) => {
@@ -172,17 +414,18 @@ const importClients = async (req, res) => {
             const clients = data.map((row) => ({
                 raison_sociale: row.Nom ?? null,
                 phone: row.Telephone != null ? String(row.Telephone).trim() : null,
-                zoneId: row.Zone ?? null,
-                statutId: row.Statut ?? parseInt(req.body?.statutId) ?? 1,
+                zoneId: row.Zone ? parseInt(row.Zone) : null,
+                statutId: req.body?.statutId ? parseInt(req.body?.statutId) : 1,
                 email: row.Email ?? null,
                 adresse: row.Adresse ?? null,
-            }));
+            }))
 
             await tx.client.createMany({
                 data: clients,
                 skipDuplicates: true,
             });
 
+            console.log("Clients imported successfully!")
             return res.status(201).json({
                 message: "Clients imported successfully!",
                 insertedCount: clients.length
@@ -217,7 +460,7 @@ const updateClient = async (req, res) => {
             });
 
             if (!result.success) {
-                return res.status(400).json({
+                return res.status(402).json({
                     errors: result.error.format(),
                 });
             }
@@ -225,7 +468,7 @@ const updateClient = async (req, res) => {
             // phone
             if (result.data?.phone) {
                 const existing = await prisma.client.findFirst({
-                    where: { phone: result.data?.phone, NOT: { id: parseInt(id) } },
+                    where: { phone: result.data?.phone, NOT: { id: parseInt(id) }, deletedAt: null },
                 });
 
                 if (existing) {
@@ -236,7 +479,7 @@ const updateClient = async (req, res) => {
             // email
             if (result.data?.email) {
                 const existing = await prisma.client.findFirst({
-                    where: { email: result.data.email, NOT: { id: parseInt(id) } },
+                    where: { email: result.data.email, NOT: { id: parseInt(id) }, deletedAt: null },
                 });
 
                 if (existing) {
@@ -261,7 +504,7 @@ const deleteClient = async (req, res) => {
     const { id } = req.params;
 
     try {
-        await prisma.$transaction(async () => {
+        await prisma.$transaction(async (tx) => {
             const clientFound = await prisma.client.findUnique({
                 where: { id: parseInt(id), deletedAt: null },
             });
@@ -286,4 +529,6 @@ const deleteClient = async (req, res) => {
     }
 };
 
-export { getClients, createClient, updateClient, deleteClient, importClients };
+export {
+    getClients, createClient, getActifClients, getInActifClients, getBefClients, updateClient, deleteClient, importClients
+};

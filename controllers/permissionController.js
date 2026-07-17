@@ -5,6 +5,7 @@ import { permissionValidation } from '../database/validations/permissionValidati
 
 // Get all permissions from the database and log them
 const getPermissions = async (req, res) => {
+    console.log("Début de recuperation de spermissions :")
     try {
         const permissions = await prisma.permission.findMany({
             where: { deletedAt: null },
@@ -22,8 +23,6 @@ const getPermissions = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch permissions' });
         throw error;
-    } finally {
-        await prisma.$disconnect();
     }
 };
 

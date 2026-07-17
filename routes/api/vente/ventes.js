@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getVentes, createVente, updateVente, validateVente, deleteVente } from '../../../controllers/vente/venteController.js';
+import { getVentes, getValidatedVentes, createVente, updateVente, validateVente, deleteVente } from '../../../controllers/vente/venteController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
@@ -14,6 +14,9 @@ const handlePreuveUpload = (req, res, next) => {
 router.route("/")
     .get(jwtAuth, getVentes)
     .post(jwtAuth, handlePreuveUpload, createVente);
+
+// ventes validées
+router.get("/validated", jwtAuth, getValidatedVentes)
 
 router.route("/:id")
     .put(jwtAuth, handlePreuveUpload, updateVente)

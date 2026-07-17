@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const produitValidation = z.object({
     name: z
-        .string("Le nom doit être une chaîne")
+        .string({ error: "Le nom doit être une chaîne" })
         .nonempty("Le nom est requis"),
 
     typeId: z.preprocess(
@@ -10,12 +10,12 @@ const produitValidation = z.object({
         z.number().int("Le type doit être un entier").optional()
     ),
 
-    image: z
-        .string("L'image doit être une chaîne")
+    fournisseurPrice: z.coerce.number({ error: "Ce champ doit être un nombre" })
+        .positive("Le prix doit être positif")
         .optional(),
 
     description: z
-        .string("La description doit être une chaîne")
+        .string({ error: "La description doit être une chaîne" })
         .optional(),
 });
 

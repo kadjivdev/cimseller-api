@@ -3,7 +3,11 @@ import { z } from 'zod';
 // commandes validation schema
 const commandeValidation = z.object({
     code: z
-        .string("Ce champ doit être un entier")
+        .string("Ce champ doit être un string")
+        .optional(),
+
+    reference: z
+        .string("Ce champ est un string")
         .optional(),
 
     date: z.coerce.date({
@@ -15,42 +19,29 @@ const commandeValidation = z.object({
         .int("Ce champ doit être un entier"),
     // .nonempty("Le fournisseur de la commande est réquis"),
 
-    montant: z
-        .number("Ce champ doit être de format numérique")
-        .optional(),
-    // .nonempty("Le montant est requis"),
-
     statutId: z
         .int("Ce champ doit être un entier")
         .optional(),
     // .nonempty("Le statut de commande est réquis"),
 
     typeId: z
-        .int("Ce champ doit être un entier"),
-    // .nonempty("Le type de commande est réquis"),
+        .int("Ce champ doit être un entier")
+        .optional(),
 });
 
 // commande detail validation
 const commandeDetailValidation = z.object({
-    commandeId: z
-        .int("Ce champ doit être un entier")
-        .optional(),
-    // .nonempty("La commande est réquise"),
 
     productId: z
-        .int("Ce champ doit être un entier")
-        .optional(),
-    // .nonempty("Le produit est réquis"),
+        .int("Ce champ doit être un entier"),
 
     qteCommande: z
         .number("Ce champ doit être de format numérique")
-        .optional(),
-    // .nonempty("Le produit est réquis"),
+        .positive("La quantité doit être supérieure à 0"),
 
     unitePrice: z
         .number("Ce champ doit être de format numérique")
-        .optional(),
-    // .nonempty("Le prix est réquis"),
+        .positive("Le prix doit être supérieur à 0"),
 
     remise: z
         .number("Ce champ doit être de format numérique")

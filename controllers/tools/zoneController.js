@@ -7,7 +7,9 @@ import { zoneValidation } from '../../database/validations/tools/zoneValidation.
 const getZones = async (req, res) => {
     try {
         const zones = await prisma.zone.findMany({
-            where: { deletedAt: null },
+            include: {
+                representant: true,
+            },
             orderBy: { id: 'desc' },
         });
 
@@ -63,7 +65,7 @@ const updateZone = async (req, res) => {
         });
 
         if (!result.success) {
-            return res.status(400).json({
+            return res.status(402).json({
                 errors: result.error.format(),
             });
         }

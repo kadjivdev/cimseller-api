@@ -36,7 +36,7 @@ const createAvaliseur = async (req, res) => {
         // fullname
         if (result.data?.fullname) {
             const existing = await prisma.avaliseurProgrammation.findFirst({
-                where: { fullname: result.data.fullname },
+                where: { fullname: result.data.fullname,deletedAt:null },
             });
 
             if (existing) {
@@ -47,7 +47,7 @@ const createAvaliseur = async (req, res) => {
         // phone
         if (result.data?.phone) {
             const existing = await prisma.avaliseurProgrammation.findFirst({
-                where: { phone: result.data.phone },
+                where: { phone: result.data.phone,deletedAt:null },
             });
 
             if (existing) {
@@ -58,7 +58,7 @@ const createAvaliseur = async (req, res) => {
         // email
         if (result.data?.email) {
             const existing = await prisma.avaliseurProgrammation.findFirst({
-                where: { email: result.data.email },
+                where: { email: result.data.email,deletedAt:null },
             });
 
             if (existing) {
@@ -98,7 +98,7 @@ const updateAvaliseur = async (req, res) => {
         // fullname
         if (result.data?.fullname) {
             const existing = await prisma.avaliseurProgrammation.findFirst({
-                where: { fullname: result.data.fullname, NOT: { id: parseInt(id) } },
+                where: { fullname: result.data.fullname, NOT: { id: parseInt(id) },deletedAt:null },
             });
 
             if (existing) {
@@ -109,7 +109,7 @@ const updateAvaliseur = async (req, res) => {
         // phone
         if (result.data?.phone) {
             const existing = await prisma.avaliseurProgrammation.findFirst({
-                where: { phone: result.data.phone, NOT: { id: parseInt(id) } },
+                where: { phone: result.data.phone, NOT: { id: parseInt(id) },deletedAt:null },
             });
 
             if (existing) {
@@ -120,7 +120,7 @@ const updateAvaliseur = async (req, res) => {
         // email
         if (result.data?.email) {
             const existing = await prisma.avaliseurProgrammation.findFirst({
-                where: { email: result.data.email, NOT: { id: parseInt(id) } },
+                where: { email: result.data.email, NOT: { id: parseInt(id) },deletedAt:null },
             });
 
             if (existing) {

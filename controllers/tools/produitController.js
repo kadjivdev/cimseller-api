@@ -12,8 +12,8 @@ const UPLOADS_DIR = path.join(
 async function deleteImageFile(filename) {
     if (!filename) return;
     try {
-        console.log("path du fichier à supprimer:",path.join(UPLOADS_DIR, filename))
-        
+        console.log("path du fichier à supprimer:", path.join(UPLOADS_DIR, filename))
+
         await fs.promises.unlink(path.join(UPLOADS_DIR, filename));
     } catch (err) {
         if (err.code !== 'ENOENT') {
@@ -54,6 +54,7 @@ const formatProduit = (produit) => ({
 });
 
 const getProduits = async (req, res) => {
+    // console.log("Debut de recuperation des produits ")
     try {
         const produits = await prisma.produit.findMany({
             where: { deletedAt: null },
@@ -63,6 +64,8 @@ const getProduits = async (req, res) => {
             },
         });
 
+        // console.log("Produits recupérés avec succès", produits)
+
         res.json(produits.map(formatProduit));
     } catch (error) {
         console.error('Prisma query failed:', error);
@@ -71,87 +74,94 @@ const getProduits = async (req, res) => {
 };
 
 const createProduit = async (req, res) => {
-    try {
-        const imageCheck = validateImageFile(req.file, { required: false });
-        if (!imageCheck.ok) {
-            return res.status(400).json({ error: imageCheck.error });
-        }
-
-        const result = produitValidation.safeParse({
-            ...req.body,
-            image: req.file?.filename,
-        });
-
-        if (!result.success) {
-            return res.status(400).json({
-                errors: result.error.format(),
-            });
-        }
-
-        if (result.data?.name) {
-            const existing = await prisma.produit.findFirst({
-                where: { name: result.data.name },
-            });
-
-            if (existing) {
-                return res.status(409).json({ error: 'Ce produit existe déjà' });
+    await prisma.$transaction(async (tx) => {
+        try {
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
             }
+
+            const result = produitValidation.safeParse({
+                ...req.body,
+                image: req.file?.filename,
+            });
+
+            if (!result.success) {
+                return res.status(400).json({
+                    errors: result.error.format(),
+                });
+            }
+
+            if (result.data?.name) {
+                const existing = await prisma.produit.findFirst({
+                    where: { name: result.data.name },
+                });
+
+                if (existing) {
+                    return res.status(409).json({ error: 'Ce produit existe déjà' });
+                }
+            }
+
+            const newProduit = await tx.produit.create({
+                data: { ...result.data },
+            });
+
+            res.status(201).json(newProduit);
+        } catch (error) {
+            console.error('Failed to create produit:', error);
+            res.status(500).json({ error: error.message || 'Failed to create produit' });
         }
-
-        const newProduit = await prisma.produit.create({
-            data: { ...result.data },
-        });
-
-        res.status(201).json(newProduit);
-    } catch (error) {
-        console.error('Failed to create produit:', error);
-        res.status(500).json({ error: error.message || 'Failed to create produit' });
-    }
+    })
 };
 
 const updateProduit = async (req, res) => {
+    console.log("Debut d'update de produit", req.file)
     let { id } = req.params;
 
-    try {
-        let produitFound = await prisma.produit.findUnique({ where: { id: parseInt(id) } })
-        if (!produitFound) return res.status(404).json({ error: "Ce produit n'existe pas!" })
+    await prisma.$transaction(async (tx) => {
+        try {
+            let produitFound = await tx.produit.findUnique({ where: { id: parseInt(id) } })
+            if (!produitFound) return res.status(404).json({ error: "Ce produit n'existe pas!" })
 
-        const imageCheck = validateImageFile(req.file, { required: false });
-        if (!imageCheck.ok) {
-            return res.status(400).json({ error: imageCheck.error });
-        }
-
-        const result = produitValidation.safeParse({
-            ...req.body,
-            ...(req.file && { image: req.file.filename }),
-        });
-
-        if (!result.success) {
-            return res.status(400).json({
-                errors: result.error.format(),
-            });
-        }
-
-        if (result.data?.name) {
-            const duplicate = await prisma.produit.findFirst({
-                where: { name: result.data.name, id: { not: parseInt(id) } },
-            });
-
-            if (duplicate) {
-                return res.status(409).json({ error: 'Ce produit existe déjà' });
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
             }
+
+            const result = produitValidation.safeParse({
+                ...req.body,
+                ...(req.file && { image: req.file.filename }),
+            });
+
+            if (!result.success) {
+                return res.status(402).json({
+                    errors: result.error.format(),
+                });
+            }
+
+            if (result.data?.name) {
+                const duplicate = await prisma.produit.findFirst({
+                    where: { name: result.data.name, id: { not: parseInt(id) } },
+                });
+
+                if (duplicate) {
+                    return res.status(409).json({ error: 'Ce produit existe déjà' });
+                }
+            }
+
+            const updatedProduit = await tx.produit.update({
+                where: { id: parseInt(id) },
+                data: { ...result.data },
+            });
+
+            console.log("Fin d'update de produit")
+
+            res.json(updatedProduit);
+        } catch (error) {
+            console.error('Failed to update produit:', error);
+            res.status(500).json({ error: error.message || 'Failed to update produit' });
         }
-
-        const updatedProduit = await prisma.produit.update({
-            where: { id: parseInt(id) },
-            data: { ...result.data },
-        });
-
-        res.json(updatedProduit);
-    } catch (error) {
-        console.error('Failed to update produit:', error);
-        res.status(500).json({ error: error.message || 'Failed to update produit' });
-    }
+    })
 };
 
 const deleteProduit = async (req, res) => {
