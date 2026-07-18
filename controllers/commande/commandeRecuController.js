@@ -61,13 +61,10 @@ const retrieveCommandeRecu = async (req, res) => {
                     commande: true,
                     createdBy: true,
                     versements: {
-                        select: {
-                            id: true,
-                            code: true,
-                            date:true,
+                        include: {
                             compte: true,
                             typeDetailRecu: true
-                        },
+                        }
                     }
                 }
             })

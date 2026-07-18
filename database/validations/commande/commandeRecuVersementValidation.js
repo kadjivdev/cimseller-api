@@ -3,16 +3,20 @@ import { z } from 'zod';
 // commande-recu-versement validation schema
 const commandeRecuVersementValidation = z.object({
 
-    recuId: z.coerce.number("Ce champ doit être un entier").int("Ce champ doit être un entier"),
+    recuId: z.coerce
+        .number("Ce champ doit être un entier")
+        .int("Ce champ doit être un entier"),
 
     compteId: z.coerce.number({
-        required_error: "Ce champ réquis",
-        invalid_type_error: "Ce champ doit être un entier",
+        error: (issue) => issue.input === undefined
+            ? "Ce champ est requis"
+            : "Ce champ doit être un entier"
     }).int("Ce champ doit être un entier"),
 
     typeDetailRecuId: z.coerce.number({
-        required_error: "Ce champ réquis",
-        invalid_type_error: "Ce champ doit être un entier",
+        error: (issue) => issue.input === undefined
+            ? "Ce champ est requis"
+            : "Ce champ doit être un entier"
     }).int("Ce champ doit être un entier"),
 
     code: z
@@ -24,13 +28,15 @@ const commandeRecuVersementValidation = z.object({
         .nullish(),
 
     date: z.coerce.date({
-        invalid_type_error: "Ce champ doit être une date",
-        required_error: "La date est requise",
+        error: (issue) => issue.input === undefined
+            ? "La date est requise"
+            : "Ce champ doit être une date"
     }),
 
     montant: z.coerce.number({
-        required_error: "Le montant est réquis",
-        invalid_type_error: "Ce champ doit être de format numérique",
+        error: (issue) => issue.input === undefined
+            ? "Le montant est requis"
+            : "Ce champ doit être de format numérique"
     }),
 
     preuve: z

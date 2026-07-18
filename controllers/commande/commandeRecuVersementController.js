@@ -51,83 +51,89 @@ const getCommandeRecuVersements = async (req, res) => {
 
 // create a new commandeRecuVersment in the database and log the result
 const createCommandeRecuVersement = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Début d\'insersion des versements de recu', req.body);
+    let user = req.user?.user;
 
-    await prisma.$transaction(async (tx) => {
-        try {
-            // validation
-            const last = await tx.commandeVersementRecu.findFirst({
-                orderBy: { id: 'desc' },
-                where: { deletedAt: null },
-                select: { id: true }
-            });
-            const resultCommandeRecuVersement = commandeRecuVersementValidation.safeParse({ ...req.body, code: `BCRV-00${last?.id ? (last?.id + 1) : 1}` });
+    try {
+        const result = await prisma.$transaction(async (tx) => {
 
-            if (!resultCommandeRecuVersement.success) {
-                return res.status(400).json({
-                    errors: resultCommandeRecuVersement.error.format()
-                });
-            }
-
-            // traitement du recu
-            if (resultCommandeRecuVersement.data?.recuId) {
-                let recu = await tx.commandeRecu.findFirst({
-                    where: { id: resultCommandeRecuVersement.data?.recuId, deletedAt: null }
-                });
-
-                if (!recu) {
-                    return res.status(404).json({ error: 'Ce reçu n\'existe pas' });
+            const commandeRecuFound = await tx.commandeRecu.findFirst({
+                where: { id: req.body?.recuId, deletedAt: null },
+                include: {
+                    versements: true,
                 }
-            }
-
-            // traitement du compte
-            if (resultCommandeRecuVersement.data?.compteId) {
-                const compte = await tx.compteBancaire.findFirst({
-                    where: { id: resultCommandeRecuVersement.data.compteId },
-                    select: { id: true },
-                });
-
-                if (!compte) {
-                    return res.status(404).json({ error: 'Ce compte n\'existe pas' });
-                }
-            }
-
-            // traitement du type de detail reçu
-            if (resultCommandeRecuVersement.data?.typeDetailRecuId) {
-                const type = await tx.typeDetailRecuCommande.findFirst({
-                    where: { id: resultCommandeRecuVersement.data.typeDetailRecuId },
-                    select: { id: true },
-                });
-
-                if (!type) {
-                    return res.status(404).json({ error: 'Ce type de detail reçu n\'existe pas' });
-                }
-            }
-
-            const { recuId, compteId, typeDetailRecuId, code, reference, date, montant } = resultCommandeRecuVersement.data;
-
-            // insertion du versement
-            const newCommandeRecuVersmeent = await tx.commandeVersementRecu.create({
-                data: {
-                    recuId,
-                    compteId,
-                    typeDetailRecuId,
-                    code,
-                    reference,
-                    date,
-                    montant,
-                    preuve: req.file?.filename,
-                },
             });
 
-            res.status(201).json(newCommandeRecuVersmeent);
-        } catch (error) {
-            console.error('Failed to create commande recu versmeent:', error);
+            if (!commandeRecuFound) {
+                throw { statusCode: 404, payload: { error: "Ce reçu n'existe pas" } };
+            }
 
-            res.status(500).json({ error: error.message || 'Failed to create commande recu versement' });
-            throw error;
+            await tx.commandeVersementRecu.deleteMany({
+                where: { recuId: commandeRecuFound.id }
+            });
+
+            /** */
+            const nouveauxVersements = [];
+
+            for (const [index, rv] of (req.body?.versements ?? []).entries()) {
+                console.log("L'index :", index);
+                console.log("Le reçu :", rv);
+
+                const last = await tx.commandeVersementRecu.findFirst({
+                    orderBy: { id: 'desc' },
+                    select: { id: true }
+                });
+
+                const resultCommandeRecuVersement = commandeRecuVersementValidation.safeParse({
+                    ...rv,
+                    recuId: commandeRecuFound.id,
+                    code: `BCRV-00${last?.id ? (last.id + 1) : 1}`
+                });
+
+                if (!resultCommandeRecuVersement.success) {
+                    throw { statusCode: 422, payload: { errors: { ...resultCommandeRecu.error.format(), recus: { _errors: [`La ligne ${index + 1} est erronnée! Veuillez bien reprendre`] } } } };
+                }
+
+                if (resultCommandeRecuVersement.data.reference) {
+                    const recuExistant = await tx.commandeVersementRecu.findFirst({
+                        where: {
+                            reference: resultCommandeRecuVersement.data?.reference,
+                            deletedAt: null
+                        }
+                    });
+
+                    if (recuExistant) {
+                        throw { statusCode: 409, payload: { error: `Cette référence existe déjà (ligne ${index + 1})` } };
+                    }
+                }
+
+                const newCommandeRecuVersement = await tx.commandeVersementRecu.create({
+                    data: {
+                        ...resultCommandeRecuVersement.data,
+                        recuId: commandeRecuFound.id,
+                        preuve: req.file?.filename,
+                        createdById: user?.id
+                    },
+                });
+
+                console.log("Versement inséré");
+                nouveauxVersements.push(newCommandeRecuVersement);
+            }
+
+            console.log("Fin d'insertion des versements");
+            return nouveauxVersements;
+        });
+
+        console.log("Tous les versements insérés avec succès");
+        return res.status(201).json(result);
+
+    } catch (error) {
+        if (error.statusCode) {
+            return res.status(error.statusCode).json(error.payload);
         }
-    })
+        console.error('Failed to create commande recu versement:', error);
+        return res.status(500).json({ error: error.message || 'Failed to create commande recu versement' });
+    }
 };
 
 // retrieve a commandeRecuVersement in the database and log the result

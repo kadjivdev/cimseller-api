@@ -45,8 +45,9 @@ model User {
   demandeSuppressionVentesCreatedBy    DemandeSuppressionVente[]  @relation("DemandeSuppressionVenteCreatedBy")
   demandeSuppressionVentesValidatedBy  DemandeSuppressionVente[]  @relation("DemandeSuppressionVenteValidatedBy")
 
-  refreshTokens       RefreshToken[]
-  venteComptabilities VenteComptability[]
+  refreshTokens          RefreshToken[]
+  venteComptabilities    VenteComptability[]
+  commandeVersementRecus CommandeVersementRecu[]
 
   @@map("users")
 }
@@ -185,6 +186,7 @@ model CommandeVersementRecu {
   date             DateTime
   montant          Float
   preuve           String?
+  createdById      Int?
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -192,6 +194,7 @@ model CommandeVersementRecu {
 
   // relations
   recu           CommandeRecu?           @relation(fields: [recuId], references: [id])
+  createdBy      User?                   @relation(fields: [createdById], references: [id])
   compte         CompteBancaire?         @relation(fields: [compteId], references: [id])
   typeDetailRecu TypeDetailRecuCommande? @relation(fields: [typeDetailRecuId], references: [id])
 
