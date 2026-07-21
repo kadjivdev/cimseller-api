@@ -2,13 +2,22 @@ import logger from '../../config/logger.js';
 import prisma from '../../config/prisma.js';
 import bcrypt from 'bcrypt';
 import { commandeValidation, commandeDetailValidation } from '../../database/validations/commande/commandeValidation.js';
+import { error } from 'console';
 
 const commandFormat = (command) => {
     let qteCommander = command.commandeDetails?.reduce((qte, dt) => (qte + dt.qteCommande), 0)
     let qteProgrammer = command.programmations?.reduce((qte, dt) => (qte + dt.qteProgrammer), 0)
+
+    // total des ventes effectuées
+    let qteVendue = command.programmations?.reduce(
+        (total, pr) => total + (pr.ventes?.reduce((qte, vente) => qte + vente.qteTotal, 0) ?? 0),
+        0
+    ) ?? 0;
+
     return {
         ...command,
         qteCommander,
+        qteVendue,
         qteProgrammer,
         stock: qteCommander - qteProgrammer
     }
@@ -67,9 +76,55 @@ const getCommandes = async (req, res) => {
                 },
                 programmations: {
                     where: { NOT: { validatedBy: null } },
-                    select: {
-                        qteProgrammer: true,
+                    include: {
+                        // les ventes validées
+                        ventes: {
+                            where: { deletedAt: null, NOT: { validatedAt: null } }
+                        },
                     }
+                }
+            }
+        });
+
+        res.json(commandes.map(commandFormat));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch commandes' });
+        throw error;
+    }
+};
+
+// Get all validated commandes from the database and log them
+const getAllValidatedCommandes = async (req, res) => {
+    console.log("Getting validated commandes")
+
+    try {
+        const commandes = await prisma.commande.findMany({
+            where: { deletedAt: null, NOT: { validatedAt: null } },
+            orderBy: { id: 'desc' },
+            include: {
+
+                createdBy: {
+                    select: {
+                        fullname: true
+                    }
+                },
+                validatedBy: {
+                    select: {
+                        fullname: true
+                    }
+                },
+                commandeDetails: {
+                    select: {
+                        id: true,
+                        qteCommande: true,
+                        unitePrice: true,
+                        remise: true,
+                    }
+                },
+                programmations: {
+                    where: { NOT: { validatedBy: null } },
+                    include: { ventes: true }
                 }
             }
         });
@@ -109,7 +164,22 @@ const retrieveCommande = async (req, res) => {
                     where: { deletedAt: null }
                 },
                 programmations: {
-                    where: { deletedAt: null }
+                    where: { deletedAt: null },
+                    include: {
+                        commande: true,
+                        zone: true,
+                        statut: true,
+                        camion: true,
+                        chauffeur: true,
+                        avaliseur: true,
+
+                        // les ventes validées
+                        ventes: {
+                            where: { deletedAt: null, NOT: { validatedAt: null } }
+                        },
+                        createdBy: true,
+                        validatedBy: true
+                    }
                 },
             }
         });
@@ -118,7 +188,22 @@ const retrieveCommande = async (req, res) => {
             return res.status(404).json({ error: "Cette commande n'existe pas!" });
         }
 
-        return res.status(200).json(commandeFound);
+        let qteCommander = commandeFound.commandeDetails?.reduce((qte, dt) => (qte + dt.qteCommande), 0)
+        let qteProgrammer = commandeFound.programmations?.reduce((qte, dt) => (qte + dt.qteProgrammer), 0)
+        // total des ventes effectuées
+        let qteVendue = commandeFound.programmations?.reduce(
+            (total, pr) => total + (pr.ventes?.reduce((qte, vente) => qte + vente.qteTotal, 0) ?? 0),
+            0
+        ) ?? 0;
+
+        const data = {
+            ...commandeFound,
+            qteCommander,
+            qteProgrammer,
+            qteVendue,
+            stock: qteCommander - qteProgrammer
+        }
+        return res.status(200).json(data);
     } catch (error) {
         console.error('Failed to retrieve commande:', error);
         return res.status(500).json({ error: error.message || 'Failed to retrieve commande' });
@@ -131,8 +216,8 @@ const createCommande = async (req, res) => {
 
     let user = req.user?.user
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // validation
             const last = await tx.commande.findFirst({
                 orderBy: { id: 'desc' },
@@ -142,9 +227,7 @@ const createCommande = async (req, res) => {
             console.log("resultCommande :", resultCommande.data)
 
             if (!resultCommande.success) {
-                return res.status(400).json({
-                    errors: resultCommande.error.format()
-                });
+                throw { errorStatus: 400, playLoad: { errors: resultCommande.error.format() } }
             }
 
             // traitement de la reference
@@ -154,7 +237,7 @@ const createCommande = async (req, res) => {
                 });
 
                 if (reference) {
-                    return res.status(409).json({ error: 'Cette reference existe déjà' });
+                    throw { errorStatus: 409, playLoad: { error: 'Cette reference existe déjà' } }
                 }
             }
 
@@ -165,7 +248,7 @@ const createCommande = async (req, res) => {
                 });
 
                 if (!fournisseur) {
-                    return res.status(404).json({ error: 'Ce fournisseur n\'existe pas' });
+                    throw { errorStatus: 404, playLoad: { error: 'Ce fournisseur n\'existe pas' } }
                 }
             }
 
@@ -176,7 +259,7 @@ const createCommande = async (req, res) => {
                 });
 
                 if (!type) {
-                    return res.status(404).json({ error: 'Ce type de commande n\'existe pas' });
+                    throw { errorStatus: 404, playLoad: { error: 'Ce type de commande n\'existe pas' } }
                 }
             }
 
@@ -193,16 +276,16 @@ const createCommande = async (req, res) => {
                 },
             });
 
-
             console.log("Fin d'insertion de commande")
-            res.status(201).json(newCommande);
-        } catch (error) {
-            console.error('Failed to create commande:', error);
+            return newCommande;
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create commande:', error);
 
-            res.status(500).json({ error: error.message || 'Failed to create commande' });
-            throw error;
-        }
-    })
+        res.status(error.errorStatus).json(error.playLoad);
+        throw error;
+    }
 };
 
 // update a commande in the database and log the result
@@ -211,28 +294,29 @@ const updateCommande = async (req, res) => {
 
     let { id } = req.params
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // found
             const commandeFound = await tx.commande.findFirst({
                 where: { id: parseInt(id) }
             })
-            if (!commandeFound) return res.status(422).json({ error: " Cette commande n'existe pas!" })
-            if (commandeFound.validatedAt) return res.status(400).json({ error: "Cette commande est déjà validée" })
+            if (!commandeFound) {
+                throw { errorStatus: 422, playLoad: { error: " Cette commande n'existe pas!" } }
+            }
+
+            if (commandeFound.validatedAt) {
+                throw { errorStatus: 400, playLoad: { error: "Cette commande est déjà validée" } }
+            }
 
             // details
             if (!req.body?.details || req.body?.details?.length == 0) {
-                return res.status(400).json({
-                    error: "Ajouter au moins un détail"
-                })
+                throw { errorStatus: 400, playLoad: { error: "Ajouter au moins un détail" } }
             }
 
             // validation
             const resultCommande = commandeValidation.safeParse({ ...req.body });
             if (!resultCommande.success) {
-                return res.status(422).json({
-                    errors: resultCommande.error.format()
-                });
+                throw { errorStatus: 422, playLoad: { errors: resultCommande.error.format() } }
             }
 
             // traitement de la reference
@@ -248,7 +332,7 @@ const updateCommande = async (req, res) => {
                 });
 
                 if (reference) {
-                    return res.status(409).json({ error: 'Cette reference existe déjà' });
+                    throw { errorStatus: 409, playLoad: { error: 'Cette reference existe déjà' } }
                 }
             }
 
@@ -259,7 +343,7 @@ const updateCommande = async (req, res) => {
                 });
 
                 if (!fournisseur) {
-                    return res.status(404).json({ error: 'Ce fournisseur n\'existe pas' });
+                    throw { errorStatus: 404, playLoad: { error: 'Ce fournisseur n\'existe pas' } }
                 }
             }
 
@@ -270,7 +354,7 @@ const updateCommande = async (req, res) => {
                 });
 
                 if (!type) {
-                    return res.status(404).json({ error: 'Ce type de commande n\'existe pas' });
+                    throw { errorStatus: 404, playLoad: { error: 'Ce type de commande n\'existe pas' } }
                 }
             }
 
@@ -281,9 +365,7 @@ const updateCommande = async (req, res) => {
             req?.body?.details?.forEach((ligne, index) => {
                 let resultDetailCommande = commandeDetailValidation.safeParse({ ...ligne });
                 if (!resultDetailCommande.success) {
-                    return res.status(422).json({
-                        errors: { ...resultDetailCommande.error.format(), details: { _errors: `La ligne ${index + 1} est mal insérée` } }
-                    });
+                    throw { errorStatus: 422, playLoad: { errors: { ...resultDetailCommande.error.format(), details: { _errors: `La ligne ${index + 1} est mal insérée` } } } }
                 }
             });
 
@@ -301,79 +383,93 @@ const updateCommande = async (req, res) => {
                     }
                 },
             });
+            return updatedCommande
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create commande:', error);
 
-            res.status(201).json(updatedCommande);
-        } catch (error) {
-            console.error('Failed to create commande:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to create commande' });
-            throw error;
-        }
-    })
+        res.status(error.errorStatus).json(error.playLoad);
+        throw error;
+    }
 };
 
 // validate a command
 const validateCommande = async (req, res) => {
+    console.log("Début de validation de la commande ")
 
-    await prisma.$transaction(async (tx) => {
-        const { id } = req.params;
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const { id } = req.params;
 
-        try {
             let commandeFound = await tx.commande.findUnique({
                 where: { id: parseInt(id), deletedAt: null },
-                include: { commandeRecus: true }
+                include: {
+                    commandeRecus: true,
+                    commandeDetails: true,
+                }
             });
 
+            if (!commandeFound) {
+                throw { errorStatus: 404, playLoad: { error: 'Commande non trouvée' } };
 
-            if (!commandeFound) return res.status(404).json({ error: 'Commande non trouvée' });
+            }
 
             const recuCommandMontant = (commandeFound.commandeRecus ?? [])
                 .filter((c) => !c.deletedAt)//non suprimés
                 .reduce((total, c) => total + c.montant, 0);
 
             if (commandeFound.montant != null &&
-                recuCommandMontant < commandeFound.montant
+                recuCommandMontant != commandeFound.montant
             ) {
-                return res.status(400).json({
-                    error: 'Le montant total des reçus est insuffisant pour valider la commande',
-                    montantCommande: commandeFound.montant,
-                    montantRecus: recuCommandMontant,
-                });
+                throw { errorStatus: 400, playLoad: { error: `Le montant total des reçus ${recuCommandMontant} est different du montant total ${commandeFound.montant} de la commande pour valider la commande` } };
             }
 
-            if (commandeFound.validatedAt) return res.status(409).json({ error: "Cette commande est déjà validée" })
+            if (commandeFound.validatedAt) {
+                throw { errorStatus: 409, playLoad: { error: "Cette commande est déjà validée" } }
+            }
 
             // validation de la commande de la base de données et log du résultat
-            await tx.commande.update({
+            const commandValidated = await tx.commande.update({
                 where: { deletedAt: null, id: parseInt(id) },
                 data: {
                     validatedAt: new Date(),
                     validatedById: req.user?.user?.id
                 }
             });
-            res.status(200).json({ message: 'Commande validée avec succès!' });
-        } catch (error) {
-            console.error('Failed to delete commande:', error);
-            res.status(500).json({ error: 'Erreure de suppresion de la commande' });
-        }
-    })
+
+            console.log("Fin de validation de la commande")
+            return commandValidated;
+        })
+
+        console.log("The result : ", result)
+        res.status(200).json({ message: 'Commande validée avec succès!' });
+    } catch (error) {
+        console.log('Failed to validate commande:', error.playLoad);
+        res.status(error.errorStatus).json(error.playLoad);
+    }
 };
 
 // delete une commande
 const deleteCommande = async (req, res) => {
+    console.log("Début de suppression de la commande :", req.body)
 
-    await prisma.$transaction(async (tx) => {
-        const { id } = req.params;
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const { id } = req.params;
             let commandeFound = await tx.commande.findUnique({
                 where: { id: parseInt(id), deletedAt: null }
             });
-            if (!commandeFound) return res.status(404).json({ error: 'Commande non trouvée' });
+            if (!commandeFound) {
+                throw { errorStatus: 404, playLoad: { error: 'Commande non trouvée' } }
+            }
 
-            if (commandeFound.validatedAt) return res.status(400).json({ error: "Cette commande est déjà validée" })
+            if (commandeFound.validatedAt) {
+                throw { errorStatus: 400, playLoad: { error: "Cette commande est déjà validée" } }
+            }
 
             // suppression de la commande de la base de données et log du résultat
-            await tx.commande.update({
+            const updatedCommande = await tx.commande.update({
                 where: { id: parseInt(id) },
                 data: {
                     deletedAt: new Date(),
@@ -388,12 +484,15 @@ const deleteCommande = async (req, res) => {
                     }
                 }
             });
-            res.status(200).json({ message: 'Commande supprimée avec succès!' });
-        } catch (error) {
-            console.error('Failed to delete commande:', error);
-            res.status(500).json({ error: 'Erreure de suppresion de la commande' });
-        }
-    })
+
+            return updatedCommande;
+        })
+        console.log("Commande suppriméé", updateCommande)
+        res.status(200).json({ message: 'Commande supprimée avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete commande:', error);
+        res.status(error.errorStatus).json(error.playLoad);
+    }
 };
 
-export { getCommandes, retrieveCommande, createCommande, updateCommande, validateCommande, deleteCommande };
+export { getCommandes, getAllValidatedCommandes, retrieveCommande, createCommande, updateCommande, validateCommande, deleteCommande };

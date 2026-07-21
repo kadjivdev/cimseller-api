@@ -173,13 +173,15 @@ const updateCommandeRecuVersement = async (req, res) => {
 
     let { id } = req.params
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // found
             const commandeRecuVersementFound = await tx.commandeVersementRecu.findFirst({
                 where: { id: parseInt(id), deletedAt: null }
             })
-            if (!commandeRecuVersementFound) return res.status(400).json({ error: " Ce versement n'existe pas!" })
+            if (!commandeRecuVersementFound) {
+                throw { errorStatus: 400, payload: { error: " Ce versement n'existe pas!" } }
+            }
 
             // validation (réutiliser les champs existants si non envoyés dans le body)
             const resultCommandeRecuVersement = commandeRecuVersementValidation.safeParse({
@@ -189,90 +191,90 @@ const updateCommandeRecuVersement = async (req, res) => {
 
             console.log("resultCommandeRecuVersement :", resultCommandeRecuVersement)
             if (!resultCommandeRecuVersement.success) {
-                return res.status(400).json({
-                    errors: resultCommandeRecuVersement.error.format()
-                });
-            }
-
-            // traitement du recu
-            if (resultCommandeRecuVersement.data?.recuId) {
-                let recu = await tx.commandeRecu.findFirst({
-                    where: { id: resultCommandeRecuVersement.data?.recuId, deletedAt: null }
-                });
-
-                if (!recu) {
-                    return res.status(404).json({ error: 'Ce reçu n\'existe pas' });
+                throw {
+                    errorStatus: 400, payload: { errors: resultCommandeRecuVersement.error.format() }
                 }
-            }
 
-            // traitement du compte
-            if (resultCommandeRecuVersement.data?.compteId) {
-                const compte = await tx.compteBancaire.findFirst({
-                    where: { id: resultCommandeRecuVersement.data?.compteId },
-                    select: { id: true },
-                });
+                // traitement du recu
+                if (resultCommandeRecuVersement.data?.recuId) {
+                    let recu = await tx.commandeRecu.findFirst({
+                        where: { id: resultCommandeRecuVersement.data?.recuId, deletedAt: null }
+                    });
 
-                if (!compte) {
-                    return res.status(404).json({ error: 'Ce compte n\'existe pas' });
-                }
-            }
-
-            // traitement du type de detail reçu
-            if (resultCommandeRecuVersement.data?.typeDetailRecuId) {
-                const type = await tx.typeDetailRecuCommande.findFirst({
-                    where: { id: resultCommandeRecuVersement.data.typeDetailRecuId },
-                    select: { id: true },
-                });
-
-                if (!type) {
-                    return res.status(404).json({ error: 'Ce type de detail reçu n\'existe pas' });
-                }
-            }
-
-            // traitement de la reference
-            if (resultCommandeRecuVersement.data?.reference) {
-                let commande = await tx.commandeVersementRecu.findFirst({
-                    where: {
-                        reference: resultCommandeRecuVersement.data?.reference,
-                        NOT: { id: parseInt(id) },
+                    if (!recu) {
+                        throw { errorStatus: 404, payload: { error: 'Ce reçu n\'existe pas' } }
                     }
-                });
-
-                if (commande) {
-                    return res.status(409).json({ error: 'Cette reference existe déjà' });
                 }
+
+                // traitement du compte
+                if (resultCommandeRecuVersement.data?.compteId) {
+                    const compte = await tx.compteBancaire.findFirst({
+                        where: { id: resultCommandeRecuVersement.data?.compteId },
+                        select: { id: true },
+                    });
+
+                    if (!compte) {
+                        throw { errorStatus: 404, payload: { error: 'Ce compte n\'existe pas' } }
+                    }
+                }
+
+                // traitement du type de detail reçu
+                if (resultCommandeRecuVersement.data?.typeDetailRecuId) {
+                    const type = await tx.typeDetailRecuCommande.findFirst({
+                        where: { id: resultCommandeRecuVersement.data.typeDetailRecuId },
+                        select: { id: true },
+                    });
+
+                    if (!type) {
+                        throw { errorStatus: 404, payload: { error: 'Ce type de detail reçu n\'existe pas' } }
+                    }
+                }
+
+                // traitement de la reference
+                if (resultCommandeRecuVersement.data?.reference) {
+                    let commande = await tx.commandeVersementRecu.findFirst({
+                        where: {
+                            reference: resultCommandeRecuVersement.data?.reference,
+                            NOT: { id: parseInt(id) },
+                        }
+                    });
+
+                    if (commande) {
+                        throw { errorStatus: 409, payload: { error: 'Cette reference existe déjà' } }
+                    }
+                }
+
+                // suppression de l'ancienne preuve lorsqu'une nouvelle preuve entre
+                if (req.file) {
+                    await deletePreuve(commandeRecuVersementFound)
+                }
+
+                const { recuId, compteId, typeDetailRecuId, code, reference, date, montant } = resultCommandeRecuVersement.data;
+
+                // modification du versement
+                const updatedCommandeVersementRecu = await tx.commandeVersementRecu.update({
+                    where: { id: parseInt(id) },
+                    data: {
+                        recuId,
+                        compteId,
+                        typeDetailRecuId,
+                        code,
+                        reference,
+                        date,
+                        montant,
+                        ...(req.file ? { preuve: req.file.filename } : {}),
+                    },
+                });
+                return updatedCommandeVersementRecu;
             }
+        })
+        res.status(201).json(updatedCommandeVersementRecu);
+    } catch (error) {
+        console.error('Failed to update versement commande reçu:', error);
 
-            // suppression de l'ancienne preuve lorsqu'une nouvelle preuve entre
-            if (req.file) {
-                await deletePreuve(commandeRecuVersementFound)
-            }
-
-            const { recuId, compteId, typeDetailRecuId, code, reference, date, montant } = resultCommandeRecuVersement.data;
-
-            // modification du versement
-            const updatedCommandeVersementRecu = await tx.commandeVersementRecu.update({
-                where: { id: parseInt(id) },
-                data: {
-                    recuId,
-                    compteId,
-                    typeDetailRecuId,
-                    code,
-                    reference,
-                    date,
-                    montant,
-                    ...(req.file ? { preuve: req.file.filename } : {}),
-                },
-            });
-
-            res.status(201).json(updatedCommandeVersementRecu);
-        } catch (error) {
-            console.error('Failed to update versement commande reçu:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to update versment commande reçu' });
-            throw error;
-        }
-    })
+        res.status(500).json({ error: error.message || 'Failed to update versment commande reçu' });
+        throw error;
+    }
 };
 
 // delete du versement commande recu

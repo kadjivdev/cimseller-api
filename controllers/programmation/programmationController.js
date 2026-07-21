@@ -13,7 +13,18 @@ const getProgrammations = async (req, res) => {
             orderBy: { id: 'desc' },
             include: {
                 //  relations
-                commande: true,
+                commande: {
+                    select: {
+                        id: true,
+                        code: true,
+                        commandeDetails: {
+                            select: {
+                                id: true,
+                                product: true
+                            }
+                        }
+                    }
+                },
                 zone: true,
                 statut: true,
                 camion: true,
@@ -51,7 +62,7 @@ const retrieveProgrammation = async (req, res) => {
                     chauffeur: true,
                     avaliseur: true,
                     createdBy: true,
-                    validatedBy:true
+                    validatedBy: true
                 }
             })
 
@@ -71,12 +82,12 @@ const retrieveProgrammation = async (req, res) => {
 
 // create a new programmations in the database and log the result
 const createProgrammation = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Insertion de programmation:', req.body); // Log the incoming request body
 
     let user = req.user?.user
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // validation
             const last = await tx.programmation.findFirst({
                 orderBy: { id: 'desc' },
@@ -87,30 +98,19 @@ const createProgrammation = async (req, res) => {
             console.log("resultProgrammation :", resultProgrammation.data)
 
             if (!resultProgrammation.success) {
-                return res.status(400).json({
-                    errors: resultProgrammation.error.format()
-                });
+                throw { errorStatus: 422, payLoad: { errors: resultProgrammation.error.format() } }
             }
 
             // traitement du commande
+            let commande = null
             if (resultProgrammation.data?.commandeId) {
-                let commande = await tx.commande.findFirst({
-                    where: { id: resultProgrammation.data?.commandeId }
+                commande = await tx.commande.findFirst({
+                    where: { id: resultProgrammation.data?.commandeId },
+                    include: { commandeDetails: true, programmations: true }
                 });
 
                 if (!commande) {
-                    return res.status(404).json({ error: 'Cette commande n\'existe pas' });
-                }
-            }
-
-            // traitement du statut
-            if (resultProgrammation.data?.statutId) {
-                let statut = await tx.statutProgrammation.findFirst({
-                    where: { id: resultProgrammation.data?.statutId }
-                });
-
-                if (!statut) {
-                    return res.status(404).json({ error: 'Ce statut de programmation n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Cette commande n\'existe pas' } }
                 }
             }
 
@@ -121,7 +121,7 @@ const createProgrammation = async (req, res) => {
                 });
 
                 if (!zone) {
-                    return res.status(404).json({ error: 'Cette zone de programmation n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Cette zone de programmation n\'existe pas' } }
                 }
             }
 
@@ -132,7 +132,7 @@ const createProgrammation = async (req, res) => {
                 });
 
                 if (!camion) {
-                    return res.status(404).json({ error: 'Ce camion n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Ce camion n\'existe pas' } }
                 }
             }
 
@@ -143,7 +143,7 @@ const createProgrammation = async (req, res) => {
                 });
 
                 if (!chauffeur) {
-                    return res.status(404).json({ error: 'Ce chauffeur n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Ce chauffeur n\'existe pas' } }
                 }
             }
 
@@ -154,46 +154,36 @@ const createProgrammation = async (req, res) => {
                 });
 
                 if (!avaliseur) {
-                    return res.status(404).json({ error: 'Cet avaliseur n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Cet avaliseur n\'existe pas' } }
                 }
             }
 
             // verification de la qteProgrammer
             if (resultProgrammation.data?.qteProgrammer <= 0) {
-                return res.status(400).json({ error: "La quantité doit depasser 0" })
+                throw { errorStatus: 400, payLoard: { error: "La quantité doit depasser 0" } }
             }
 
             /**Verification de la quantité déjà programmée 
              * sur cette commande
             */
-            const programmations = await prisma.programmation.findMany({
-                where: {
-                    deletedAt: null,
-                    commandeId: resultProgrammation.data?.commandeId
-                }
-            });
-
-            const commandProgrammation = await prisma.commande.findFirst({
-                where: { id: resultProgrammation.data?.commandeId },
-                include: { commandeDetails: true }
-            })
 
             //celle déjà programmée
-            const qteTotalDejaProgramme = (programmations ?? [])
+            const qteTotalDejaProgramme = (commande.programmations ?? [])
                 .reduce((total, c) => total + c.qteProgrammer, 0);
 
             //celle programmée & celle entrante
             const qteTotalProgrammer = qteTotalDejaProgramme + resultProgrammation.data?.qteProgrammer;
 
             // celle de la commande
-            const qteTotalCommande = commandProgrammation?.commandeDetails?.[0]?.qteCommande || 0
+            const qteTotalCommande = commande?.commandeDetails?.
+                reduce((total, detail) => (total + detail.qteCommande), 0)
+
+            console.log("qteTotalDejaProgramme :", qteTotalDejaProgramme)
+            console.log("qteTotalProgrammer :", qteTotalProgrammer)
+            console.log("qteTotalCommande :", qteTotalCommande)
 
             if (qteTotalProgrammer > qteTotalCommande) {
-                return res.status(400).json({
-                    message: "Attention! à l'ajout de cette quantité, la quantité totale programmée dépasserait celle commandée ",
-                    qteTotalCommande: qteTotalCommande,
-                    qteTotalProgrammer: qteTotalProgrammer
-                })
+                throw { errorStatus: 400, payLoad: { error: `Attention! à l'ajout de cette quantité (${resultProgrammation.data?.qteProgrammer}), la quantité totale (${qteTotalProgrammer}) programmée dépasserait celle commandée ${qteTotalCommande}` } }
             }
 
             // insertion de la programmation
@@ -204,14 +194,14 @@ const createProgrammation = async (req, res) => {
                 },
             });
 
-            res.status(201).json(newProgrammation);
-        } catch (error) {
-            console.error('Failed to create programmation:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to create programmation' });
-            throw error;
-        }
-    })
+            console.log("Programmation insérée avec succès!")
+            return newProgrammation
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create programmation:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
 };
 
 // update a programmation in the database and log the result
@@ -219,49 +209,40 @@ const updateProgrammation = async (req, res) => {
     console.log('Request body:', req.body); // Log the incoming request body
 
     let { id } = req.params
+    const user = req.user?.user
 
-    await prisma.$transaction(async (tx) => {
-        try {
-            // found
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+
+            // found programmation
             const programmationFound = await tx.programmation.findFirst({
                 where: { id: parseInt(id), deletedAt: null }
-            })
-
-            if (!programmationFound) return res.status(400).json({ error: " Cette programmation n'existe pas!" })
-
-            if (programmationFound.validatedAt) return res.status(400).json({ error: "Cette programmation est déjà validée" })
-
-            // validation
-            const resultProgrammation = programmationValidation.safeParse({
-                ...programmationFound,
-                ...req.body,
             });
 
+            if (!programmationFound) {
+                throw { errorStatus: 404, payLoad: { error: "Cette programmation n'existe pas!" } }
+            }
+
+            // validation
+
+            const resultProgrammation = programmationValidation.safeParse({ ...req.body });
+
+            console.log("resultProgrammation :", resultProgrammation.data)
+
             if (!resultProgrammation.success) {
-                return res.status(400).json({
-                    errors: resultProgrammation.error.format()
-                });
+                throw { errorStatus: 422, payLoad: { errors: resultProgrammation.error.format() } }
             }
 
             // traitement du commande
+            let commande = null
             if (resultProgrammation.data?.commandeId) {
-                let commande = await tx.commande.findFirst({
-                    where: { id: resultProgrammation.data?.commandeId }
+                commande = await tx.commande.findFirst({
+                    where: { id: resultProgrammation.data?.commandeId },
+                    include: { commandeDetails: true, programmations: true }
                 });
 
                 if (!commande) {
-                    return res.status(404).json({ error: 'Cette commande n\'existe pas' });
-                }
-            }
-
-            // traitement du statut
-            if (resultProgrammation.data?.statutId) {
-                let statut = await tx.statutProgrammation.findFirst({
-                    where: { id: resultProgrammation.data?.statutId }
-                });
-
-                if (!statut) {
-                    return res.status(404).json({ error: 'Ce statut de programmation n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Cette commande n\'existe pas' } }
                 }
             }
 
@@ -272,18 +253,18 @@ const updateProgrammation = async (req, res) => {
                 });
 
                 if (!zone) {
-                    return res.status(404).json({ error: 'Cette zone de programmation n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Cette zone de programmation n\'existe pas' } }
                 }
             }
 
             // traitement du camion
             if (resultProgrammation.data?.camionId) {
-                let camion = await tx.zone.findFirst({
+                let camion = await tx.camion.findFirst({
                     where: { id: resultProgrammation.data?.camionId }
                 });
 
                 if (!camion) {
-                    return res.status(404).json({ error: 'Ce camion n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Ce camion n\'existe pas' } }
                 }
             }
 
@@ -294,7 +275,7 @@ const updateProgrammation = async (req, res) => {
                 });
 
                 if (!chauffeur) {
-                    return res.status(404).json({ error: 'Ce chauffeur n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Ce chauffeur n\'existe pas' } }
                 }
             }
 
@@ -305,92 +286,95 @@ const updateProgrammation = async (req, res) => {
                 });
 
                 if (!avaliseur) {
-                    return res.status(404).json({ error: 'Cet avaliseur n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Cet avaliseur n\'existe pas' } }
                 }
             }
 
-            /**
-             * Verification de la quantité déjà programmée 
-             * sur cette commande
-            */
-            const programmations = await prisma.programmation.findMany({
-                where: {
-                    deletedAt: null,
-                    commandeId: resultProgrammation.data?.commandeId,
-                    id: { NOT: parseInt(id) }
-                },
-            });
-
-            const command = await prisma.commande.findFirst({
-                where: { id: resultProgrammation.data?.commandeId },
-                include: { commandeDetails: true }
-            })
-
-            //qte déjà programmée
-            const qteTotalDejaProgramme = (programmations ?? [])
-                .reduce((total, c) => total + c.qteProgrammer, 0);
-
-            //qte programmée & qte entrante
-            const qteTotalProgrammer = qteTotalDejaProgramme + resultProgrammation.data?.qteProgrammer;
-
-            // qte de la commande
-            const qteTotalCommande = command?.commandeDetails?.[0]?.qteCommande || 0
-
-            if (qteTotalProgrammer > qteTotalCommande) {
-                return res.status(400).json({
-                    message: "Attention! à l'ajout de cette quantité, la quantité totale programmée dépasserait celle commandée ",
-                    qteTotalCommande: qteTotalCommande,
-                    qteTotalProgrammer: qteTotalProgrammer
-                })
+            // verification de la qteProgrammer
+            if (resultProgrammation.data?.qteProgrammer <= 0) {
+                throw { errorStatus: 400, payLoard: { error: "La quantité doit depasser 0" } }
             }
 
-            // modification de la programmation
-            const updatedProgrammation = await tx.programmation.update({
-                where: { id: parseInt(id) },
+            /**Verification de la quantité déjà programmée 
+             * sur cette commande
+            */
+
+            //celle déjà programmée
+            console.log("filtered programmation :", commande.programmations?.filter((pr) => pr.id != id))
+            const qteTotalDejaProgramme = (commande.programmations?.filter((pr) => pr.id != id) || [])
+                .reduce((total, c) => total + c.qteProgrammer, 0);
+
+            //celle programmée & celle entrante
+            const qteTotalProgrammer = qteTotalDejaProgramme + resultProgrammation.data?.qteProgrammer;
+
+            // celle de la commande
+            const qteTotalCommande = commande?.commandeDetails?.
+                reduce((total, detail) => (total + detail.qteCommande), 0)
+
+            console.log("qteTotalDejaProgramme :", qteTotalDejaProgramme)
+            console.log("qteTotalProgrammer :", qteTotalProgrammer)
+            console.log("qteTotalCommande :", qteTotalCommande)
+
+            if (qteTotalProgrammer > qteTotalCommande) {
+                throw { errorStatus: 400, payLoad: { error: `Attention! à l'ajout de cette quantité (${resultProgrammation.data?.qteProgrammer}), la quantité totale (${qteTotalProgrammer}) programmée dépasserait celle commandée ${qteTotalCommande}` } }
+            }
+
+            // insertion de la programmation
+            const newProgrammation = await tx.programmation.update({
+                where: { id: parseInt(id), deletedAt: null },
                 data: {
                     ...resultProgrammation.data,
+                    createdById: user?.id,
                 },
             });
 
-            res.status(201).json(updatedProgrammation);
-        } catch (error) {
-            console.error('Failed to create programmation:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to create programmation' });
-            throw error;
-        }
-    })
+            console.log("Programmation modifiée avec succès!")
+            return newProgrammation
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create programmation:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
 };
 
 // validate a programmation
 const validateProgrammation = async (req, res) => {
 
-    await prisma.$transaction(async (tx) => {
-        const { id } = req.params;
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const { id } = req.params;
 
-        try {
             let programmationFound = await tx.programmation.findUnique({
                 where: { id: parseInt(id), deletedAt: null },
             });
 
-            if (!programmationFound) return res.status(404).json({ error: 'Programmation non trouvée' });
+            if (!programmationFound) {
+                throw { errorStatus: 404, payLoad: { error: 'Programmation non trouvée' } }
+            }
 
-            if (programmationFound.validatedAt) return res.status(409).json({ error: "Cette programmation est déjà validée" })
+            if (programmationFound.validatedAt) {
+                throw { errorStatus: 409, payLoad: { error: "Cette programmation est déjà validée" } }
+            }
 
             // validation de la programmation de la base de données et log du résultat
-            await tx.programmation.update({
+            const updatedProgrammation = await tx.programmation.update({
                 where: { deletedAt: null, id: parseInt(id) },
                 data: {
+                    statutId: 1,
                     validatedAt: new Date(),
                     validatedById: req.user?.user?.id
                 }
             });
-            res.status(200).json({ message: 'Programmation validée avec succès!' });
-        } catch (error) {
-            console.error('Failed to delete programmation:', error);
-            res.status(500).json({ error: 'Erreure de suppresion de la programmation' });
-        }
-    })
+
+            return updatedProgrammation
+        })
+        console.log("Programmation validée avec succès!")
+        res.status(200).json({ message: 'Programmation validée avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete programmation:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
 };
 
 // delete a programmation
@@ -421,4 +405,4 @@ const deleteProgrammation = async (req, res) => {
     })
 };
 
-export { getProgrammations,retrieveProgrammation, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation };
+export { getProgrammations, retrieveProgrammation, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation };

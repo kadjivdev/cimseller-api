@@ -258,6 +258,7 @@ model Programmation {
   camion    Camion?                 @relation(fields: [camionId], references: [id])
   chauffeur Chauffeur?              @relation(fields: [chauffeurId], references: [id])
   avaliseur AvaliseurProgrammation? @relation(fields: [avaliseurId], references: [id])
+  ventes      Vente[]
 
   createdBy   User? @relation("ProgrammationCreatedBy", fields: [createdById], references: [id])
   validatedBy User? @relation("ProgrammationValidatedBy", fields: [validatedById], references: [id])
@@ -269,6 +270,7 @@ model Vente {
   id Int @id @default(autoincrement())
 
   commandClientId    Int?
+  programmationId    Int?
   statutId           Int?
   produitId          Int?
   typeId             Int?
@@ -296,6 +298,7 @@ model Vente {
   updatedAt   DateTime  @updatedAt
 
   // relations
+  programmation            Programmation?            @relation(fields: [programmationId], references: [id])
   commandeClient            CommandeClient?            @relation(fields: [commandClientId], references: [id])
   client                    Client?                    @relation(fields: [clientId], references: [id])
   createdBy                 User?                      @relation("VenteCreatedBy", fields: [createdById], references: [id])

@@ -186,13 +186,15 @@ const updateCommandeRecu = async (req, res) => {
 
     let { id } = req.params
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // found
             const commandeRecuFound = await tx.commandeRecu.findFirst({
                 where: { id: parseInt(id), deletedAt: null }
             })
-            if (!commandeRecuFound) return res.status(400).json({ error: " Cette commande reçu n'existe pas!" })
+            if (!commandeRecuFound) {
+                throw { errorStatus: 400, payload: { error: " Cette commande reçu n'existe pas!" } }
+            }
 
             // validation (réutiliser les champs existants si non envoyés dans le body)
             const resultCommandeRecu = commandeRecuValidation.safeParse({
@@ -202,9 +204,7 @@ const updateCommandeRecu = async (req, res) => {
 
             console.log("resultCommandeRecu :", resultCommandeRecu)
             if (!resultCommandeRecu.success) {
-                return res.status(400).json({
-                    errors: resultCommandeRecu.error.format()
-                });
+                throw { errorStatus: 400, payload: { errors: resultCommandeRecu.error.format() } }
             }
 
             // traitement de la commande
@@ -214,7 +214,7 @@ const updateCommandeRecu = async (req, res) => {
                 });
 
                 if (!commande) {
-                    return res.status(404).json({ error: 'Cette commande n\'existe pas' });
+                    throw { errorStatus: 404, payload: { error: 'Cette commande n\'existe pas' } }
                 }
             }
 
@@ -228,7 +228,7 @@ const updateCommandeRecu = async (req, res) => {
                 });
 
                 if (recu) {
-                    return res.status(409).json({ error: 'Cette reference existe d2jà' });
+                    throw { errorStatus: 409, payload: { error: 'Cette reference existe d2jà' } }
                 }
             }
 
@@ -246,26 +246,28 @@ const updateCommandeRecu = async (req, res) => {
                 },
             });
 
-            res.status(201).json(updatedCommandeRecu);
-        } catch (error) {
-            console.error('Failed to create commande reçu:', error);
+            return updatedCommandeRecu;
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create commande reçu:', error);
 
-            res.status(500).json({ error: error.message || 'Failed to create commande reçu' });
-            throw error;
-        }
-    })
+        res.status(error.statusCode).json(error.payload);
+    }
 };
 
 // delete une commande recu
 const deleteCommandeRecu = async (req, res) => {
 
-    await prisma.$transaction(async (tx) => {
-        const { id } = req.params;
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const { id } = req.params;
             let commandeRecuFound = await tx.commandeRecu.findUnique({
                 where: { id: parseInt(id), deletedAt: null }
             });
-            if (!commandeRecuFound) return res.status(404).json({ error: 'Commande reçu non trouvé' });
+            if (!commandeRecuFound) {
+                throw { errorStatus: 404, payload: { error: 'Commande reçu non trouvé' } }
+            }
 
             // suppression de la commande reçu de la base de données et log du résultat
             await tx.commandeRecu.update({
@@ -276,12 +278,13 @@ const deleteCommandeRecu = async (req, res) => {
             // suppression de la preuve du reçu
             await deletePreuve(commandeRecuFound)
 
-            res.status(200).json({ message: 'Commande reçu supprimé avec succès!' });
-        } catch (error) {
-            console.error('Failed to delete commande reçu:', error);
-            res.status(500).json({ error: 'Erreure de suppresion de la commande reçu' });
-        }
-    })
+            return commandeRecuFound;
+        })
+        res.status(200).json({ message: 'Commande reçu supprimé avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete commande reçu:', error);
+        res.status(error.errorStatus).json(error.payload);
+    }
 };
 
 export { getCommandeRecus, retrieveCommandeRecu, createCommandeRecu, updateCommandeRecu, deleteCommandeRecu };

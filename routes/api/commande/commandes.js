@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCommandes, retrieveCommande, createCommande, updateCommande, validateCommande, deleteCommande } from '../../../controllers/commande/commandeController.js';
+import { getCommandes, getAllValidatedCommandes, retrieveCommande, createCommande, updateCommande, validateCommande, deleteCommande } from '../../../controllers/commande/commandeController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 
 const router = Router();
@@ -7,6 +7,9 @@ const router = Router();
 router.route("/")
     .get(jwtAuth, getCommandes)
     .post(jwtAuth, createCommande);
+
+router.route("/validated")
+    .get(jwtAuth ,getAllValidatedCommandes)
 
 router.route("/:id")
     .get(jwtAuth, retrieveCommande)

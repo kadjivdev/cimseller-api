@@ -164,13 +164,15 @@ const updateCommandeAccuse = async (req, res) => {
 
     let { id } = req.params
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // found
             const commandeAccuseFound = await tx.commandeAccuses.findFirst({
                 where: { id: parseInt(id), deletedAt: null }
             })
-            if (!commandeAccuseFound) return res.status(400).json({ error: " Cet accuse de commande n'existe pas!" })
+            if (!commandeAccuseFound) {
+                throw { errorStatus: 400, payload: { error: " Cet accuse de commande n'existe pas!" } }
+            }
 
             // validation (réutiliser les champs existants si non envoyés dans le body)
             const resultCommandeAccuse = commandeAccuseValidation.safeParse({
@@ -180,9 +182,7 @@ const updateCommandeAccuse = async (req, res) => {
 
             console.log("resultCommandeAccuse :", resultCommandeAccuse)
             if (!resultCommandeAccuse.success) {
-                return res.status(400).json({
-                    errors: resultCommandeAccuse.error.format()
-                });
+                throw { errorStatus: 400, payload: { errors: resultCommandeAccuse.error.format() } }
             }
 
             // traitement de la commande
@@ -193,7 +193,7 @@ const updateCommandeAccuse = async (req, res) => {
                 });
 
                 if (!commande) {
-                    return res.status(404).json({ error: 'Cette commande n\'existe pas' });
+                    throw { errorStatus: 404, payload: { error: 'Cette commande n\'existe pas' } }
                 }
             }
 
@@ -205,7 +205,7 @@ const updateCommandeAccuse = async (req, res) => {
                 });
 
                 if (!type) {
-                    return res.status(404).json({ error: 'Ce type de document n\'existe pas' });
+                    throw { errorStatus: 404, payload: { error: 'Ce type de document n\'existe pas' } }
                 }
             }
 
@@ -219,7 +219,7 @@ const updateCommandeAccuse = async (req, res) => {
                 });
 
                 if (accuse) {
-                    return res.status(409).json({ error: 'Cette reference existe déjà' });
+                    throw { errorStatus: 409, payload: { error: 'Cette reference existe déjà' } }
                 }
             }
 
@@ -237,14 +237,15 @@ const updateCommandeAccuse = async (req, res) => {
                 },
             });
 
-            res.status(201).json(updatedCommandeAccuse);
-        } catch (error) {
-            console.error('Failed to update accuse commande :', error);
+            return updatedCommandeAccuse;
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to update accuse commande :', error);
 
-            res.status(500).json({ error: error.message || 'Failed to update accuse commande' });
-            throw error;
-        }
-    })
+        res.status(error.errorStatus).json(error.payload);
+        throw error;
+    }
 };
 
 // delete du commande accuse
@@ -275,4 +276,4 @@ const deleteCommandeAccuse = async (req, res) => {
     })
 };
 
-export { getCommandeAccuses,retrieveCommandeAccuse, createCommandeAccuse, updateCommandeAccuse, deleteCommandeAccuse };
+export { getCommandeAccuses, retrieveCommandeAccuse, createCommandeAccuse, updateCommandeAccuse, deleteCommandeAccuse };
