@@ -2,6 +2,7 @@ import logger from '../../config/logger.js';
 import prisma from '../../config/prisma.js';
 import bcrypt from 'bcrypt';
 import { programmationValidation } from '../../database/validations/programmation/programmationValidation.js';
+import { generateProgrammationsPDF } from '../../services/pdfService.js';
 
 // Get all programmation from the database and log them
 const getProgrammations = async (req, res) => {
@@ -39,6 +40,47 @@ const getProgrammations = async (req, res) => {
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch programmations' });
+        throw error;
+    }
+};
+
+// Get all validated programmations from the database and log them
+const getValidatedProgrammations = async (req, res) => {
+    console.log("Getting validated progrmmations")
+
+    try {
+        const programmations = await prisma.programmation.findMany({
+            where: { deletedAt: null, statutId: 1, validatedById: { not: null } },
+            orderBy: { id: 'desc' },
+            include: {
+                //  relations
+                commande: {
+                    select: {
+                        id: true,
+                        code: true,
+                        commandeDetails: {
+                            select: {
+                                id: true,
+                                product: true
+                            }
+                        },
+                        fournisseur: true
+                    }
+                },
+                zone: true,
+                statut: true,
+                camion: true,
+                chauffeur: true,
+                avaliseur: true,
+                createdBy: true,
+                validatedBy: true
+            }
+        });
+
+        res.json(programmations);
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated programmations' });
         throw error;
     }
 };
@@ -89,11 +131,8 @@ const createProgrammation = async (req, res) => {
     try {
         const result = await prisma.$transaction(async (tx) => {
             // validation
-            const last = await tx.programmation.findFirst({
-                orderBy: { id: 'desc' },
-                select: { id: true }
-            });
-            const resultProgrammation = programmationValidation.safeParse({ ...req.body, code: `PR-00${last?.id ? (last?.id + 1) : 1}` });
+            const count = (await tx.programmation.findMany({}))?.length;
+            const resultProgrammation = programmationValidation.safeParse({ ...req.body, code: `PR-00${count + 1}` });
 
             console.log("resultProgrammation :", resultProgrammation.data)
 
@@ -405,4 +444,109 @@ const deleteProgrammation = async (req, res) => {
     })
 };
 
-export { getProgrammations, retrieveProgrammation, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation };
+// imprimer a list of programmations
+const printProgrammations = async (req, res) => {
+    console.log('Début d\'impression des programmation:', req.body); // Log the incoming request body
+
+    let user = req.user?.user
+    let { fournisseurId, start, end } = req.body
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+
+            const fournisseur = await tx.fournisseur.findFirst({
+                where: { deletedAt: null, id: parseInt(fournisseurId) }
+            })
+
+            if (!fournisseur) {
+                throw { errorStatus: 404, payLoad: { error: "Ce fournisseur n'existe pas!" } }
+            }
+
+            // getting programmations
+            const programmations = await tx.programmation.findMany({
+                include: {
+                    commande: true
+                },
+                where: {
+                    commande: {
+                        fournisseurId: parseInt(fournisseurId)
+                    },
+                    createdAt: {
+                        gte: new Date(start),
+                        lte: new Date(end)
+                    }
+                },
+            })
+
+            // update programmations
+            await tx.programmation.updateMany({
+                where: {
+                    commande: { fournisseurId: parseInt(fournisseurId) },
+                    createdAt: { gte: new Date(start), lte: new Date(end) }
+                },
+                data: { imprimer: true }
+            })
+
+            console.log("programmations :", programmations)
+            console.log("Programmation insérée avec succès!",)
+            return programmations
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create programmation:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
+};
+
+// Get pdf a list of programmations
+const getPdfProgrammations = async (req, res) => {
+    let user = req.user?.user;
+    const { fournisseurId, start, end } = req.params; // params, pas query
+
+    try {
+        const fournisseur = await prisma.fournisseur.findFirst({
+            where: { deletedAt: null, id: parseInt(fournisseurId) }
+        });
+
+        if (!fournisseur) {
+            throw { errorStatus: 404, payLoad: { error: "Ce fournisseur n'existe pas!" } };
+        }
+
+        const programmations = await prisma.programmation.findMany({
+            include: {
+                zone: true,
+                statut: true,
+                camion: true,
+                chauffeur: true,
+                avaliseur: true,
+                commande: {
+                    include: {
+                        commandeDetails: {
+                            include: { product: true }
+                        }
+                    }
+                }
+            },
+            where: {
+                imprimer: true,
+                commande: { fournisseurId: parseInt(fournisseurId) },
+                createdAt: {
+                    gte: new Date(start),
+                    lte: new Date(end)
+                }
+            },
+        });
+
+        const pdfBuffer = await generateProgrammationsPDF(fournisseur, programmations, start, end);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline; filename=programmations.pdf');
+        res.send(pdfBuffer);
+    } catch (error) {
+        console.error('Failed to fetch programmations:', error);
+        res.status(error.errorStatus || 500).json(error.payLoad || { error: "Erreur serveur" });
+    }
+};
+
+
+export { getProgrammations, getValidatedProgrammations, getPdfProgrammations, retrieveProgrammation, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation, printProgrammations };

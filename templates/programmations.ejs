@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font-family: 'Helvetica', sans-serif;
+      color: #2b2b2b;
+      padding: 25px;
+      font-size: 11px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid #F5C400;
+      padding-bottom: 12px;
+      margin-bottom: 15px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .badge {
+      background: #F5C400;
+      padding: 4px 12px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #555;
+      margin-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #2b2b2b;
+      color: white;
+      text-align: left;
+      padding: 6px 5px;
+      font-size: 10px;
+    }
+
+    td {
+      padding: 5px;
+      border-bottom: 1px solid #ddd;
+      font-size: 10px;
+    }
+
+    tr:nth-child(even) {
+      background: #f7f7f7;
+    }
+
+    .statut {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: bold;
+    }
+
+    .qte {
+      text-align: right;
+    }
+
+    .footer {
+      margin-top: 15px;
+      text-align: right;
+      font-size: 10px;
+      color: #555;
+    }
+
+    .page-number:before {
+      content: counter(page);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1>Kadjiv'Sarl</h1>
+    <span class="badge">LISTE DES PROGRAMMATIONS</span>
+  </div>
+
+  <div class="meta">
+    <span>Généré le <%= new Date().toLocaleDateString('fr-FR') %></span>
+    <span>
+      <%= programmations.length %> programmation(s)
+    </span>
+
+    <h4>Fournisseur : <%= fournisseur.raison_sociale %>
+    </h4>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Zone</th>
+        <th>Camion</th>
+        <th>Chauffeur</th>
+        <th>Avaliseur</th>
+        <th>Produit</th>
+        <th>Date Prog.</th>
+        <th class="qte">Qté Prog.</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% programmations.forEach(p=> { %>
+        <tr>
+          <td>
+            <%= p.code %>
+          </td>
+          <td>
+            <%= p.zone?.name || '-' %>
+          </td>
+          <td>
+            <%= p.camion?.immatriculation || '-' %>
+          </td>
+          <td>
+            <%= p.chauffeur?.fullname || '-' %>
+          </td>
+          <td>
+            <%= p.avaliseur?.fullname || '-' %>
+          </td>
+          <td>
+            <%= p.commande?.commandeDetails?.[0]?.product?.name || '-' %>
+          </td>
+          <td>
+            <%= p.dateProgrammation ? new Date(p.dateProgrammation).toLocaleDateString('fr-FR') : '-' %>
+          </td>
+          <td class="qte">
+            <%= p.qteProgrammer ?? '-' %>
+          </td>
+        </tr>
+        <% }) %>
+
+          <tr class="qte">
+            <td colspan="7" class="bordertd" style="padding: 5px"><b>Total</b></td>
+            <td colspan="2" class="text-right bordertd" style="padding: 5px"><b>
+                <%= programmations.reduce((total,pr)=>(total+pr.qteProgrammer),0) %> Tonne(s)
+              </b></td>
+          </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">Page <span class="page-number"></span></div>
+
+  <div style="margin-top: 3em;">
+    <table style="float: left; margin-left: 1.5em">
+      <tr>
+        <td class="text-center">
+          -
+        </td>
+      </tr>
+    </table>
+    <table class="" style="float: right">
+      <tr>
+        <td class="text-center">
+          <h6>Signature</h6>
+        </td>
+      </tr>
+      <tr>
+        <td class="text-center"></td>
+      </tr>
+      <tr>
+        <td class="text-center" style="padding-top: 2.5em">
+          <h6>
+            <h6></h6>
+          </h6>
+        </td>
+      </tr>
+    </table>
+    <div style="clear: left"></div>
+  </div>
+</body>
+
+</html>
