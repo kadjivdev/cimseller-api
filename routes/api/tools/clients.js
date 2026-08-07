@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getClients, createClient, updateClient, deleteClient, importClients } from '../../../controllers/tools/clientController.js';
+import { getClients, retrieveClient, createClient, updateClient, deleteClient, importClients } from '../../../controllers/tools/clientController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload, { memoryUpload } from '../../../middlewares/multer.js';
 
@@ -35,6 +35,7 @@ router.route('/')
     .put(jwtAuth, uploadExcelFile, importClients);
 
 router.route('/:id')
+    .get(jwtAuth, retrieveClient)
     .put(jwtAuth, uploadFile, updateClient)
     .delete(jwtAuth, deleteClient);
 

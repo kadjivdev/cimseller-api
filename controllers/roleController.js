@@ -83,9 +83,7 @@ const createRole = async (req, res) => {
         }
 
         let { permissionIds, ...roleData } = result.data
-        if(permissionIds){
-            
-        }
+        
         // insertion
         const newRole = await prisma.role.create({
             data: {

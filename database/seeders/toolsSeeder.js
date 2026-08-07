@@ -1,4 +1,3 @@
-import { name } from 'ejs';
 import prisma from '../../config/prisma.js';
 
 const tools = {
@@ -58,16 +57,16 @@ const tools = {
 
     statutCommandes: [
         {
+            name: 'Non programmée',
+            description: "La commande n'est pas programmée",
+        },
+        {
+            name: 'En cours de programmation',
+            description: 'La commande est en cours de programmation et en attente de traitement.',
+        },
+        {
             name: 'Programmée',
             description: 'La commande est programmée et en attente de traitement.',
-        },
-        {
-            name: 'Livrée',
-            description: 'La commande a été livrée.',
-        },
-        {
-            name: 'Validée',
-            description: 'La commande est validée.',
         }
     ],
     typeCommandes: [
@@ -104,9 +103,14 @@ const tools = {
         {
             name: 'Validée',
             description: 'La programmation de la commande est validée.',
-        }, {
+        },
+        {
             name: 'Annulée',
             description: 'La programmation de la commande est annulée.',
+        },
+        {
+            name: 'Partiellement livrée',
+            description: 'La programmation de la commande est livrée partiellement.',
         },
         {
             name: 'Livrée',

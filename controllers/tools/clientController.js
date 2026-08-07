@@ -50,12 +50,19 @@ async function deleteProfil(filename) {
 const toImageUrl = (filename) =>
     filename ? `${process.env.BASE_URL}/public/uploads/${filename}` : null;
 
-const formatClient = (client) => ({
-    ...client,
-    approvisionnementAmount: client.approvisionnements?.reduce((a, appro) => (a + appro.montant), 0) ?? 0,
-    reglementAmount: client.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0,
-    profil: toImageUrl(client.profil),
-});
+const formatClient = (client) => {
+    let approvisionnementAmount = client.approvisionnements?.reduce((a, appro) => (a + appro.montant), 0) ?? 0;
+    let reglementAmount = client.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
+    let solde = approvisionnementAmount - reglementAmount
+
+    return {
+        ...client,
+        approvisionnementAmount,
+        reglementAmount,
+        solde,
+        profil: toImageUrl(client.profil),
+    }
+};
 
 // Get all clients
 const getClients = async (req, res) => {
@@ -315,6 +322,34 @@ const getBefClients = async (req, res) => {
     }
 };
 
+
+// Get all clients
+const retrieveClient = async (req, res) => {
+    console.log("Retrieving a client")
+    const { id } = req.params
+
+    try {
+        // search client
+        const clientFound = await prisma.client.findFirst({
+            where: { id: parseInt(id), deletedAt: null },
+            include: {
+                approvisionnements: {
+                    where: { NOT: { validatedAt: null } },
+                },
+                reglements: {
+                    where: { NOT: { validatedAt: null } },
+                },
+            }
+        })
+
+        if (!clientFound) return res.status(404).json({ error: "Ce client n'existe pas!" })
+        res.json(formatClient(clientFound));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch clients' });
+    }
+};
+
 // create client in the database and log the result
 const createClient = async (req, res) => {
     console.log("Début insertion de client : ", req.body)
@@ -530,5 +565,5 @@ const deleteClient = async (req, res) => {
 };
 
 export {
-    getClients, createClient, getActifClients, getInActifClients, getBefClients, updateClient, deleteClient, importClients
+    getClients, createClient,retrieveClient, getActifClients, getInActifClients, getBefClients, updateClient, deleteClient, importClients
 };

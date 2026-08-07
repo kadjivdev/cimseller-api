@@ -14,10 +14,17 @@ const UPLOADS_DIR = path.join(
 const toImageUrl = (filename) =>
     filename ? `${process.env.BASE_URL}/public/uploads/${filename}` : null;
 
-const formatVente = (vente) => ({
-    ...vente,
-    preuve: toImageUrl(vente.preuve),
-});
+const formatVente = (vente) => {
+    let reglementAmount = vente.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
+    let reste = vente.montant - reglementAmount
+
+    const data = { ...vente, reglementAmount, reste, preuve: toImageUrl(vente.preuve) }
+
+    console.log("Data :", data)
+    return {
+        ...data,
+    }
+};
 
 const ALLOWED_IMAGE_TYPES = [
     'image/png',
@@ -66,12 +73,16 @@ const getVentes = async (req, res) => {
                 //  relations
                 // commandeClient: true,
                 client: {
-                    id: true,
-                    raison_sociale: true
+                    select: {
+                        id: true,
+                        raison_sociale: true
+                    }
                 },
                 produit: {
-                    id: true,
-                    name: true
+                    select: {
+                        id: true,
+                        name: true
+                    }
                 },
                 statut: true,
                 type: true,
@@ -111,9 +122,14 @@ const getValidatedVentes = async (req, res) => {
         const ventes = await prisma.vente.findMany({
             where: { statutId: 2, deletedAt: null },
             orderBy: { id: 'desc' },
+            include: {
+                reglements: {
+                    where: { deletedAt: null }
+                }
+            }
         });
 
-        res.json(ventes);
+        res.json(ventes.map(formatVente));
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch validated ventes' });
@@ -123,160 +139,130 @@ const getValidatedVentes = async (req, res) => {
 
 // create a new ventes in the database and log the result
 const createVente = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Request body:', req.body);
+    let user = req.user?.user;
 
-    let user = req.user?.user
-
-    await prisma.$transaction(async (tx) => {
-        try {
-            // validation de l'image
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             const imageCheck = validateImageFile(req.file, { required: false });
             if (!imageCheck.ok) {
-                return res.status(400).json({ error: imageCheck.error });
+                throw { errorStatus: 400, payLoad: { error: imageCheck.error } };
             }
 
-            // validation
             const last = await tx.vente.findFirst({
                 orderBy: { id: 'desc' },
                 select: { id: true }
             });
-            const resultVente = venteValidation.safeParse({ ...req.body, code: `VD-00${last?.id ? (last?.id + 1) : 1}` });
-
-            console.log("resultVente :", resultVente.data)
+            const resultVente = venteValidation.safeParse({
+                ...req.body,
+                code: `VD-00${last?.id ? (last.id + 1) : 1}`
+            });
 
             if (!resultVente.success) {
-                return res.status(400).json({
-                    errors: resultVente.error.format()
-                });
+                throw { errorStatus: 422, payLoad: { errors: resultVente.error.format() } };
             }
 
-            // traitement du commande client
-            if (resultVente.data?.commandClientId) {
-                let commandeClient = await tx.commandeClient.findFirst({
-                    where: { id: resultVente.data?.commandClientId }
-                });
+            // ⚠️ on sort clientCommanderId AVANT de spread dans vente.create,
+            // sinon Prisma renvoie une erreur "Unknown argument" (crash catch)
+            const { clientCommanderId, commandClientId, ...venteData } = resultVente.data;
 
+            if (commandClientId) {
+                const commandeClient = await tx.commandeClient.findFirst({
+                    where: { id: commandClientId }
+                });
                 if (!commandeClient) {
-                    return res.status(404).json({ error: 'Cette commande client n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Cette commande client n\'existe pas' } };
                 }
             }
 
-            // traitement du statut
-            if (resultVente.data?.statutId) {
-                let statut = await tx.statutVente.findFirst({
-                    where: { id: resultVente.data?.statutId }
-                });
-
-                if (!statut) {
-                    return res.status(404).json({ error: 'Ce statut de vente n\'existe pas' });
-                }
-            }
-
-            // traitement du produit
             if (resultVente.data?.produitId) {
-                let produit = await tx.produit.findFirst({
-                    where: { id: resultVente.data?.produitId }
-                });
-
-                if (!produit) {
-                    return res.status(404).json({ error: 'Ce produit n\'existe pas' });
-                }
+                const produit = await tx.produit.findFirst({ where: { id: resultVente.data.produitId } });
+                if (!produit) throw { errorStatus: 404, payLoad: { error: 'Ce produit n\'existe pas' } };
             }
 
-            // traitement du type
             if (resultVente.data?.typeId) {
-                let type = await tx.typeCommandeClient.findFirst({
-                    where: { id: resultVente.data?.typeId }
-                });
-
-                if (!type) {
-                    return res.status(404).json({ error: 'Ce type de commande client n\'existe pas' });
-                }
+                const type = await tx.typeCommandeClient.findFirst({ where: { id: resultVente.data.typeId } });
+                if (!type) throw { errorStatus: 404, payLoad: { error: 'Ce type de commande client n\'existe pas' } };
             }
 
-            // traitement du type de facture
             if (resultVente.data?.typeFactureVenteId) {
-                let typeFactureVente = await tx.typeFactureVente.findFirst({
-                    where: { id: resultVente.data?.typeFactureVenteId }
-                });
-
-                if (!typeFactureVente) {
-                    return res.status(404).json({ error: 'Ce type de facture de vente n\'existe pas' });
-                }
+                const typeFactureVente = await tx.typeFactureVente.findFirst({ where: { id: resultVente.data.typeFactureVenteId } });
+                if (!typeFactureVente) throw { errorStatus: 404, payLoad: { error: 'Ce type de facture de vente n\'existe pas' } };
             }
 
-            // traitement du client
             if (resultVente.data?.clientId) {
-                let client = await tx.client.findFirst({
-                    where: { id: resultVente.data?.clientId }
-                });
-
-                if (!client) {
-                    return res.status(404).json({ error: 'Ce client n\'existe pas' });
-                }
+                const client = await tx.client.findFirst({ where: { id: resultVente.data.clientId } });
+                if (!client) throw { errorStatus: 404, payLoad: { error: 'Ce client n\'existe pas' } };
             }
 
-            /**Attachement de bon de commande client */
             let commandeClient = null;
-            if (resultVente.data?.commandClientId) {
-                commandeClient = await tx.commandeClient.findFirst({
-                    where: { id: resultVente.data?.commandClientId }
-                });
+            if (commandClientId) {
+                commandeClient = await tx.commandeClient.findFirst({ where: { id: commandClientId } });
             }
+
+            // ⚠️ parenthésage corrigé : ?? a une précédence très basse,
+            // sans parenthèses le transport était totalement ignoré du calcul
+            const montant = resultVente.data?.montant
+                ? resultVente.data.montant
+                : ((resultVente.data?.unitePrice ?? 0) * (resultVente.data?.qteTotal ?? 0))
+                - (resultVente.data?.remise ?? 0)
+                + ((resultVente.data?.qteTotal ?? 0) * (resultVente.data?.transport ?? 0));
 
             if (!commandeClient) {
-                // on le crée seulement si le clientId est présent dans la requête, pour éviter de créer des commandes clients sans client associé
-                const last = await tx.commandeClient.findFirst({
+                const lastCmd = await tx.commandeClient.findFirst({
                     orderBy: { id: 'desc' },
                     select: { id: true }
                 });
 
                 commandeClient = await tx.commandeClient.create({
                     data: {
-                        code: `CMD-00${last?.id ? (last?.id + 1) : 1}`,
-                        clientId: resultVente.data?.clientId,
+                        code: `CMD-00${lastCmd?.id ? (lastCmd.id + 1) : 1}`,
+                        clientId: clientCommanderId,
                         validatedById: user?.id,
                         validatedAt: new Date(),
                         date: new Date(),
-                        montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
+                        montant,
                         typeCommandeClientId: resultVente.data?.typeId,
                     }
                 });
             }
 
-            console.log("commandeClient :", commandeClient)
-
-            // insertion de la vente
             const newVente = await tx.vente.create({
                 data: {
-                    ...resultVente.data,
+                    ...venteData,
                     commandClientId: commandeClient?.id,
-                    montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
+                    montant,
                     createdById: user?.id,
-                    statutId: resultVente.data?.statutId || 1,
+                    statutId: 1,
                     preuve: req.file ? req.file.filename : null
                 },
             });
 
-            res.status(201).json(newVente);
-        } catch (error) {
-            console.error('Failed to create vente:', error);
+            return newVente;
+        });
 
-            res.status(500).json({ error: error.message || 'Failed to create vente' });
-            throw error;
-        }
-    })
+        res.status(201).json(result);
+    } catch (error) {
+        // ⚠️ garde-fou : si l'erreur n'a pas errorStatus/payLoad (ex: erreur Prisma
+        // native), on retombe sur un 500 générique au lieu de crasher le process
+        const status = error?.errorStatus ?? 500;
+        const payload = error?.payLoad ?? { error: 'Erreur interne du serveur' };
+
+        console.error('Code:', status);
+        console.error('Failed to create vente:', error);
+
+        return res.status(status).json(payload);
+    }
 };
 
 // retrieve a vente in the database and log the result
 const retrieveVente = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Début de recupération de la vente:', req.body); // Log the incoming request body
 
     let { id } = req.params
 
-    await prisma.$transaction(async (tx) => {
-
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // found
             const venteFound = await tx.vente.findFirst({
                 where: { id: parseInt(id), deletedAt: null },
@@ -289,7 +275,16 @@ const retrieveVente = async (req, res) => {
                     typeFactureVente: true,
                     reglements: true,
                     venteComptability: true,
-                    reglements: true,
+                    reglements: {
+                        // where: { validatedAt: { not: null } },
+                        include: {
+                            createdBy: true,
+                            validatedBy: true,
+                            typeDetailRecu: true,
+                            compteBancaire: true,
+                            client: true
+                        }
+                    },
                     treatedBy: {
                         select: {
                             fullname: true,
@@ -314,158 +309,152 @@ const retrieveVente = async (req, res) => {
                 }
             })
 
-            if (!venteFound) return res.status(400).json({ error: " Cette vente n'existe pas!" })
+            if (!venteFound) throw { errorStatus: 400, payLoad: { error: " Cette vente n'existe pas!" } }
 
-            res.status(201).json(venteFound);
-        } catch (error) {
-            console.error('Failed to create vente:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to create vente' });
-            throw error;
-        }
-    })
+            console.log("Vente found", venteFound)
+            return venteFound
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create vente:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
 };
 
 // update a vente in the database and log the result
 const updateVente = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Request body:', req.body);
+    // ou plus simple, dans un fichier à part :
 
-    let { id } = req.params
+    const { id } = req.params;
+    const user = req.user?.user;
 
-    await prisma.$transaction(async (tx) => {
-        const imageCheck = validateImageFile(req.file, { required: false });
-        if (!imageCheck.ok) {
-            return res.status(400).json({ error: imageCheck.error });
-        }
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                throw { errorStatus: 400, payLoad: { error: imageCheck.error } };
+            }
 
-        try {
-            // found
             const venteFound = await tx.vente.findFirst({
-                where: { id: parseInt(id), deletedAt: null }
-            })
+                where: { id: parseInt(id), deletedAt: null },
+                include: { commandeClient: true }
+            });
 
-            if (!venteFound) return res.status(400).json({ error: " Cette vente n'existe pas!" })
+            if (!venteFound) {
+                throw { errorStatus: 400, payLoad: { error: "Cette vente n'existe pas!" } };
+            }
+            if (venteFound.validatedAt) {
+                throw { errorStatus: 400, payLoad: { error: "Cette vente est déjà validée! Vous ne pouvez plus la modifier" } };
+            }
 
-            if (venteFound.validatedAt) return res.status(400).json({ error: "Cette vente est déjà validée" })
-
-            // validation
+            // merge avec l'existant pour permettre un update partiel
             const resultVente = venteValidation.safeParse({
                 ...venteFound,
                 ...req.body,
             });
 
             if (!resultVente.success) {
-                return res.status(400).json({
-                    errors: resultVente.error.format()
-                });
+                throw { errorStatus: 422, payLoad: { errors: resultVente.error.format() } };
             }
 
-            // traitement du commande client
-            if (resultVente.data?.commandClientId) {
-                let commandeClient = await tx.commandeClient.findFirst({
-                    where: { id: resultVente.data?.commandClientId }
-                });
+            // retrieving data
+            const { clientCommanderId, commandClientId, code, statutId, ...venteData } = resultVente.data;
 
-                if (!commandeClient) {
-                    return res.status(404).json({ error: 'Cette commande client n\'existe pas' });
+            if (commandClientId) {
+                const commandeClientExists = await tx.commandeClient.findFirst({ where: { id: commandClientId } });
+                if (!commandeClientExists) {
+                    throw { errorStatus: 404, payLoad: { error: 'Cette commande client n\'existe pas' } };
                 }
             }
 
-            // traitement du statut
             if (resultVente.data?.statutId) {
-                let statut = await tx.statutVente.findFirst({
-                    where: { id: resultVente.data?.statutId }
-                });
-
-                if (!statut) {
-                    return res.status(404).json({ error: 'Ce statut de vente n\'existe pas' });
-                }
+                const statut = await tx.statutVente.findFirst({ where: { id: resultVente.data?.statutId } });
+                if (!statut) throw { errorStatus: 404, payLoad: { error: 'Ce statut de vente n\'existe pas' } };
             }
 
-            // traitement du produit
             if (resultVente.data?.produitId) {
-                let produit = await tx.produit.findFirst({
-                    where: { id: resultVente.data?.produitId }
-                });
-
-                if (!produit) {
-                    return res.status(404).json({ error: 'Ce produit n\'existe pas' });
-                }
+                const produit = await tx.produit.findFirst({ where: { id: resultVente.data.produitId } });
+                if (!produit) throw { errorStatus: 404, payLoad: { error: 'Ce produit n\'existe pas' } };
             }
 
-            // traitement du type
             if (resultVente.data?.typeId) {
-                let type = await tx.typeCommandeClient.findFirst({
-                    where: { id: resultVente.data?.typeId }
-                });
-
-                if (!type) {
-                    return res.status(404).json({ error: 'Ce type de commande client n\'existe pas' });
-                }
+                const type = await tx.typeCommandeClient.findFirst({ where: { id: resultVente.data.typeId } });
+                if (!type) throw { errorStatus: 404, payLoad: { error: 'Ce type de commande client n\'existe pas' } };
             }
 
-            // traitement du type de facture
             if (resultVente.data?.typeFactureVenteId) {
-                let typeFactureVente = await tx.typeFactureVente.findFirst({
-                    where: { id: resultVente.data?.typeFactureVenteId }
-                })
-            };
-
-            // traitement du client
-            if (resultVente.data?.clientId) {
-                let client = await tx.client.findFirst({
-                    where: { id: resultVente.data?.clientId }
-                });
-
-                if (!client) {
-                    return res.status(404).json({ error: 'Ce client n\'existe pas' });
-                }
+                const typeFactureVente = await tx.typeFactureVente.findFirst({ where: { id: resultVente.data.typeFactureVenteId } });
+                if (!typeFactureVente) throw { errorStatus: 404, payLoad: { error: 'Ce type de facture de vente n\'existe pas' } };
             }
 
-            // modification de la vente
-            const updatedVente = await tx.vente.update({
-                where: { id: parseInt(id) },
-                data: {
-                    ...resultVente.data,
-                    montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
-                    preuve: req.file ? req.file.filename : venteFound.preuve,
-                    commandeClient: {
-                        update: {
-                            montant: resultVente.data?.unitePrice * resultVente.data?.qteTotal,
-                            typeCommandeClientId: resultVente.data?.typeId,
-                            clientId: resultVente.data?.clientId
-                        }
+            if (resultVente.data?.clientId) {
+                const client = await tx.client.findFirst({ where: { id: resultVente.data.clientId } });
+                if (!client) throw { errorStatus: 404, payLoad: { error: 'Ce client n\'existe pas' } };
+            }
+
+            const montant = resultVente.data?.montant
+                ? resultVente.data.montant
+                : ((resultVente.data?.unitePrice ?? 0) * (resultVente.data?.qteTotal ?? 0))
+                - (resultVente.data?.remise ?? 0)
+                + ((resultVente.data?.qteTotal ?? 0) * (resultVente.data?.transport ?? 0));
+
+            // on met à jour la commandeClient EXISTANTE liée à cette vente (pas par clientId, qui n'est pas unique)
+            if (venteFound.commandeClient) {
+                await tx.commandeClient.update({
+                    where: { id: venteFound.commandeClient.id },
+                    data: {
+                        montant,
+                        typeCommandeClientId: resultVente.data?.typeId,
+                        clientId: resultVente.data?.clientId,
                     }
+                });
+            }
+
+            console.log(" just before updating Vente : ", venteData)
+            const updatedVente = await tx.vente.update({
+                where: { id: parseInt(id), deletedAt: null },
+                data: {
+                    ...venteData,
+                    montant,
+                    preuve: req.file ? req.file.filename : venteFound.preuve,
+                    ...(commandClientId ? { commandeClient: { connect: { id: commandClientId } } } : {}),
                 },
             });
 
-            res.status(201).json(updatedVente);
-        } catch (error) {
-            console.error('Failed to create vente:', error);
+            return updatedVente;
+        });
 
-            res.status(500).json({ error: error.message || 'Failed to create vente' });
-            throw error;
-        }
-    })
+        res.status(200).json(result);
+    } catch (error) {
+        const status = error?.errorStatus ?? 500;
+        const payload = error?.payLoad ?? { error: 'Erreur interne du serveur' };
+
+        console.error('Code:', status);
+        console.error('Failed to update vente:', error);
+
+        return res.status(status).json(payload);
+    }
 };
 
 // validate a vente
 const validateVente = async (req, res) => {
+    console.log("Début de validation", req.body)
 
-    await prisma.$transaction(async (tx) => {
-        const { id } = req.params;
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const { id } = req.params;
 
-        try {
             let venteFound = await tx.vente.findUnique({
                 where: { id: parseInt(id), deletedAt: null },
             });
 
-            if (!venteFound) return res.status(404).json({ error: 'vente non trouvée' });
+            if (!venteFound) throw { errorStatus: 404, payLoad: { error: 'vente non trouvée' } };
 
-            if (venteFound.validatedAt) return res.status(409).json({ error: "Cette vente est déjà validée" })
+            if (venteFound.validatedAt) throw { errorStatus: 409, payLoad: { error: "Cette vente est déjà validée" } }
 
             // validation de la vente de la base de données et log du résultat
-            await tx.vente.update({
+            const updateVente = await tx.vente.update({
                 where: { deletedAt: null, id: parseInt(id) },
                 data: {
                     validatedAt: new Date(),
@@ -473,25 +462,30 @@ const validateVente = async (req, res) => {
                     statutId: 2
                 }
             });
-            res.status(200).json({ message: 'Vente validée avec succès!' });
-        } catch (error) {
-            console.error('Failed to delete vente:', error);
-            res.status(500).json({ error: 'Erreure de suppresion de la vente' });
-        }
-    })
+
+            console.log("Validation éffectuée avec succès!")
+            return updateVente;
+        })
+        res.status(200).json({ message: 'Vente validée avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete vente:', error);
+        res.status(error.errorStatus).json(error.payload);
+    }
 };
 
 // delete a vente
 const deleteVente = async (req, res) => {
-    await prisma.$transaction(async (tx) => {
-        const { id } = req.params;
-        try {
+    console.log("Début de suppression de la vente", req.body)
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            const { id } = req.params;
             let venteFound = await tx.vente.findUnique({
                 where: { id: parseInt(id), deletedAt: null }
             });
-            if (!venteFound) return res.status(404).json({ error: 'Vente non trouvée' });
+            if (!venteFound) throw { errorStatus: 404, payLoad: { error: 'Vente non trouvée' } };
 
-            if (venteFound.validatedAt) return res.status(400).json({ error: "Cette vente est déjà validée" })
+            if (venteFound.validatedAt) throw { errorStatus: 400, payLoad: { error: "Cette vente est déjà validée" } }
 
             // suppression de la vente de la base de données et log du résultat
             await tx.vente.update({
@@ -504,12 +498,13 @@ const deleteVente = async (req, res) => {
             // suppression de la preuve
             await deleteImageFile(venteFound.preuve);
 
-            res.status(200).json({ message: 'Vente supprimée avec succès!' });
-        } catch (error) {
-            console.error('Failed to delete vente:', error);
-            res.status(500).json({ error: 'Erreure de suppresion de la vente' });
-        }
-    })
+            return "vente supprimée";
+        })
+        res.status(200).json({ message: 'Vente supprimée avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete vente:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
 };
 
-export { getVentes, getValidatedVentes, createVente, updateVente, validateVente, deleteVente };
+export { getVentes, getValidatedVentes, retrieveVente, createVente, updateVente, validateVente, deleteVente };

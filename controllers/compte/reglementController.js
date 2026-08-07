@@ -24,6 +24,19 @@ const deletePreuve = async (reglement) => {
     }
 }
 
+const formatClient = (client) => {
+    let approvisionnementAmount = client.approvisionnements?.reduce((a, appro) => (a + appro.montant), 0) ?? 0;
+    let reglementAmount = client.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
+    let solde = approvisionnementAmount - reglementAmount
+
+    return {
+        ...client,
+        approvisionnementAmount,
+        reglementAmount,
+        solde
+    }
+};
+
 // Get all réglements from the database and log them
 const getReglements = async (req, res) => {
     console.log("Getting réglements")
@@ -85,8 +98,8 @@ const createReglement = async (req, res) => {
     console.log('Début d\'insertion des reglements:', req.body); // Log the incoming request body
     let user = req.user?.user
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // validation
             const last = await tx.reglement.findFirst({
                 orderBy: { id: 'desc' },
@@ -97,37 +110,45 @@ const createReglement = async (req, res) => {
             console.log("resultReglement :", resultReglement.data)
 
             if (!resultReglement.success) {
-                return res.status(400).json({
-                    errors: resultReglement.error.format()
-                });
+                throw { errorStatus: 400, payLoad: { errors: resultReglement.error.format() } }
             }
 
             // traitement du vente
+            let vente = null
             if (resultReglement.data?.venteId) {
-                let vente = await tx.vente.findFirst({
+                vente = await tx.vente.findFirst({
                     where: { id: resultReglement.data?.venteId, deletedAt: null }
                 });
-
-                if (!vente) {
-                    return res.status(404).json({ error: 'Cette vente n\'existe pas' });
-                }
-
-                if (!vente.validatedAt || !vente.validatedById || vente.statutId != 2) {
-                    return res.status(404).json({ error: 'Cette vente n\'est pas validée' });
-                }
             }
 
+            if (!vente) {
+                throw { errorStatus: 404, payLoad: { error: 'Cette vente n\'existe pas' } }
+            }
+
+            if (!vente.validatedAt || !vente.validatedById || vente.statutId != 2) {
+                throw { errorStatus: 404, payLoad: { error: 'Cette vente n\'est pas validée' } }
+            }
+
+            if (resultReglement.data?.clientId != vente.clientId) {
+                throw { errorStatus: 400, payLoad: { error: "Le client choisi ne correspond pas à celui à qui appartient la vente." } }
+            }
 
             // traitement du client
             const client = await tx.client.findFirst({
                 where: { id: resultReglement.data?.clientId, deletedAt: null },
                 include: {
-                    oldDette: true
+                    oldDette: true,
+                    approvisionnements: {
+                        where: { NOT: { validatedAt: null } },
+                    },
+                    reglements: {
+                        where: { NOT: { validatedAt: null } },
+                    },
                 }
             });
 
             if (!client) {
-                return res.status(404).json({ error: 'Ce client n\'existe pas' });
+                throw { errorStatus: 404, payLoad: { error: 'Ce client n\'existe pas' } }
             }
 
             // traitement du compte bancaire
@@ -137,7 +158,7 @@ const createReglement = async (req, res) => {
                 });
 
                 if (!compteBancaire) {
-                    return res.status(404).json({ error: 'Ce compte bancaire n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Ce compte bancaire n\'existe pas' } }
                 }
             }
 
@@ -148,7 +169,7 @@ const createReglement = async (req, res) => {
                 });
 
                 if (!typeDetailRecu) {
-                    return res.status(404).json({ error: 'Ce type de détail de reçu n\'existe pas' });
+                    throw { errorStatus: 404, payLoad: { error: 'Ce type de détail de reçu n\'existe pas' } }
                 }
             }
 
@@ -159,7 +180,7 @@ const createReglement = async (req, res) => {
                 });
 
                 if (reglement) {
-                    return res.status(409).json({ error: 'Cette référence existe déjà' });
+                    throw { errorStatus: 409, payLoad: { error: 'Cette référence existe déjà' } }
                 }
             }
 
@@ -170,7 +191,7 @@ const createReglement = async (req, res) => {
              *  */
             let clientOldDette = client?.oldDette?.dette - client?.oldDette?.solved
             if (clientOldDette > 0 && !req.body?.deblocDette) {
-                return res.status(400).json({ error: `Le Client ${client.raison_sociale} dispose d'une dette ancienne de ${clientOldDette.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} Fcfa. Veuillez vous rendre sur son compte pour régler cette ancienne dette d'abord.` })
+                throw { errorStatus: 400, payLoad: { error: `Le Client ${client.raison_sociale} dispose d'une dette ancienne de ${clientOldDette.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} Fcfa. Veuillez vous rendre sur son compte pour régler cette ancienne dette d'abord.` } }
             }
 
             // insertion du reglement de la base de données et log du résultat
@@ -183,14 +204,16 @@ const createReglement = async (req, res) => {
             });
 
             console.log("Fin d'insertion des règlements")
-            res.status(201).json(newReglement);
-        } catch (error) {
-            console.error('Failed to create reglement:', error);
 
-            res.status(500).json({ error: error.message || 'Failed to create reglement' });
-            throw error;
-        }
-    })
+            return newReglement
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create reglement:', error);
+
+        res.status(error.errorStatus).json(error.payLoad);
+        throw error;
+    }
 };
 
 // update a reglement in the database and log the result
@@ -199,8 +222,8 @@ const updateReglement = async (req, res) => {
 
     let { id } = req.params
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // found
             const reglementFound = await tx.reglement.findFirst({
                 where: { id: parseInt(id), deletedAt: null }
@@ -221,30 +244,47 @@ const updateReglement = async (req, res) => {
             }
 
             // traitement de la vente
+            let vente = null
             if (resultReglement.data?.venteId) {
-                let vente = await tx.vente.findFirst({
+                vente = await tx.vente.findFirst({
                     where: { id: resultReglement.data?.venteId }
                 });
+            }
 
-                if (!vente) {
-                    return res.status(404).json({ error: 'Cette vente n\'existe pas' });
-                }
+            if (!vente) {
+                return res.status(404).json({ error: 'Cette vente n\'existe pas' });
+            }
 
-                if (!vente.createdAt) {
-                    return res.status(404).json({ error: 'Cette vente n\'est pas validée' });
-                }
+            if (!vente.createdAt) {
+                return res.status(404).json({ error: 'Cette vente n\'est pas validée' });
             }
 
             // traitement du client
             let client = await tx.client.findFirst({
                 where: { id: resultReglement.data?.clientId },
                 include: {
-                    oldDette: true
+                    oldDette: true,
+                    approvisionnements: {
+                        where: { NOT: { validatedAt: null } },
+                    },
+                    reglements: {
+                        where: { NOT: { validatedAt: null } },
+                    },
                 }
             });
 
             if (!client) {
                 return res.status(404).json({ error: 'Ce client n\'existe pas' });
+            }
+
+            const clientFormated = formatClient(client)
+
+            if (clientFormated?.solde < resultReglement?.data?.montant) {
+                throw { errorStatus: 400, payLoad: { error: `Le solde ${clientFormated?.solde?.toLocaleString({ minimumFractionDigits: 2 })} du client est insuffisant par rapport au reglement de ${reglementFound?.data?.montant}` } }
+            }
+
+            if (vente?.montant < resultReglement?.data?.montant) {
+                throw { errorStatus: 400, payLoad: { error: `Le montant ${vente?.montant?.toLocaleString({ minimumFractionDigits: 2 })} de la vente est insuffisant par rapport au reglement de ${reglementFound?.data?.montant}` } }
             }
 
             // traitement du compte bancaire
@@ -299,14 +339,14 @@ const updateReglement = async (req, res) => {
                 },
             });
 
-            res.status(201).json(updatedReglement);
-        } catch (error) {
-            console.error('Failed to create reglement:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to create reglement' });
-            throw error;
-        }
-    })
+            console.log("Update de reglement effectué avec succès!")
+            return updatedReglement
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create reglement:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
 };
 
 // valider un reglement from the database and log the result

@@ -156,7 +156,11 @@ const retrieveCommande = async (req, res) => {
                 fournisseur: true,
                 createdBy: true,
                 validatedBy: true,
-                commandeDetails: true,
+                commandeDetails: {
+                    include: {
+                        product: true
+                    }
+                },
                 commandeRecus: {
                     where: { deletedAt: null }
                 },
@@ -164,7 +168,7 @@ const retrieveCommande = async (req, res) => {
                     where: { deletedAt: null }
                 },
                 programmations: {
-                    where: { deletedAt: null },
+                    where: { deletedAt: null, },
                     include: {
                         commande: true,
                         zone: true,
@@ -172,10 +176,16 @@ const retrieveCommande = async (req, res) => {
                         camion: true,
                         chauffeur: true,
                         avaliseur: true,
+                        transferts: {
+                            include: {
+                                zoneSource:true,
+                                zoneDestination: true,
+                            }
+                        },
 
                         // les ventes validées
                         ventes: {
-                            where: { deletedAt: null, NOT: { validatedAt: null } }
+                            where: { deletedAt: null, validatedAt: { not: null } }
                         },
                         createdBy: true,
                         validatedBy: true
@@ -201,7 +211,20 @@ const retrieveCommande = async (req, res) => {
             qteCommander,
             qteProgrammer,
             qteVendue,
-            stock: qteCommander - qteProgrammer
+            stock: qteCommander - qteProgrammer,
+
+            // programmations
+            programmations: commandeFound.programmations.map((pr) => {
+                // total des ventes effectuées
+                let qteVendue = pr.ventes?.reduce((qte, vente) => (qte + vente.qteTotal), 0) ?? 0;
+
+                return {
+                    ...pr,
+                    qteVendue,
+                    stock: pr.qteProgrammer - pr.qteLivre,
+                }
+
+            })
         }
         return res.status(200).json(data);
     } catch (error) {
@@ -268,7 +291,7 @@ const createCommande = async (req, res) => {
                 data: {
                     ...resultCommande.data,
                     createdById: user?.id,
-                    statutId: 1,
+                    // statutId: 1,
                     montant: 0,
                     commandeDetails: {
                         create: {}//initiation du detail
@@ -429,10 +452,15 @@ const validateCommande = async (req, res) => {
                 throw { errorStatus: 409, playLoad: { error: "Cette commande est déjà validée" } }
             }
 
+            if (commandeFound.commandeDetails?.[0]?.qteCommande == 0) {
+                throw { errorStatus: 400, playLoad: { error: "Complèter la commande avant de la valider" } }
+            }
+
             // validation de la commande de la base de données et log du résultat
             const commandValidated = await tx.commande.update({
                 where: { deletedAt: null, id: parseInt(id) },
                 data: {
+                    // statutId:3,
                     validatedAt: new Date(),
                     validatedById: req.user?.user?.id
                 }

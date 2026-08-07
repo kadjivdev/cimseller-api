@@ -14,16 +14,16 @@ datasource db {
  * Les models
  */
 model User {
-  id        Int       @id @default(autoincrement())
-  fullname  String
-  email     String    @unique
-  password  String
-  roleId    Int?
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                                   Int                         @id @default(autoincrement())
+  fullname                             String
+  email                                String                      @unique
+  password                             String
+  roleId                               Int?
+  deletedAt                            DateTime?
+  createdAt                            DateTime                    @default(now())
+  updatedAt                            DateTime                    @updatedAt
 
-  // relations
+  //                                   relations
   role                                 Role?                      @relation(fields: [roleId], references: [id])
   commandeDetails                      CommandeDetail[]           @relation("CommandeDetailCreatedBy")
   createdCommandes                     Commande[]                 @relation("CommandeCreatedBy")
@@ -38,45 +38,46 @@ model User {
   commandeClientsValidated             CommandeClient[]           @relation("CommandeClientValidatedBy")
   reglementsCreatedBy                  Reglement[]                @relation("ReglementCreatedBy")
   reglementsValidatedBy                Reglement[]                @relation("ReglementValidatedBy")
-  approvisionnementsCreatedBy          Approvisionnement[]        @relation("ReglementCreatedBy")
-  approvisionnementsValidatedBy        Approvisionnement[]        @relation("ReglementValidatedBy")
+  approvisionnementsCreatedBy          Approvisionnement[]        @relation("ApprovisionnementCreatedBy")
+  approvisionnementsValidatedBy        Approvisionnement[]        @relation("ApprovisionnementValidatedBy")
   demandeModificationVentesCreatedBy   DemandeModificationVente[] @relation("DemandeModificationVenteCreatedBy")
   demandeModificationVentesValidatedBy DemandeModificationVente[] @relation("DemandeModificationVenteValidatedBy")
   demandeSuppressionVentesCreatedBy    DemandeSuppressionVente[]  @relation("DemandeSuppressionVenteCreatedBy")
   demandeSuppressionVentesValidatedBy  DemandeSuppressionVente[]  @relation("DemandeSuppressionVenteValidatedBy")
 
-  refreshTokens          RefreshToken[]
-  venteComptabilities    VenteComptability[]
-  commandeVersementRecus CommandeVersementRecu[]
+  transfertProgrammations              TransfertProgrammation[]
+  refreshTokens                        RefreshToken[]
+  venteComptabilities                  VenteComptability[]
+  commandeVersementRecus               CommandeVersementRecu[]
 
   @@map("users")
 }
 
 model RefreshToken {
-  id        Int      @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   token     String
   userId    Int
   expiresAt DateTime
 
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  // relations
-  user User @relation(fields: [userId], references: [id])
+  //        relations
+  user      User      @relation(fields: [userId], references: [id])
 
   @@map("refresh_tokens")
 }
 
 model Role {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
+  id          Int               @id @default(autoincrement())
+  name        String            @unique
   description String?
   deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  // relations
+  //          relations
   users       User[]
   permissions RolePermission[]
 
@@ -84,37 +85,37 @@ model Role {
 }
 
 model Permission {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
+  id          Int               @id @default(autoincrement())
+  name        String            @unique
   description String?
   deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  // relations
-  roles RolePermission[]
+  //          relations
+  roles       RolePermission[]
 
   @@map("permissions")
 }
 
 model Commande {
-  id            Int       @id @default(autoincrement())
-  code          String?
-  reference     String?
-  date          DateTime
-  montant       Float?
-  validatedAt   DateTime?
-  statutId      Int?
-  typeId        Int?
-  fournisseurId Int?
-  createdById   Int?
-  validatedById Int?
+  id              Int                @id @default(autoincrement())
+  code            String?
+  reference       String?
+  date            DateTime
+  montant         Float?
+  validatedAt     DateTime?
+  statutId        Int?
+  typeId          Int?
+  fournisseurId   Int?
+  createdById     Int?
+  validatedById   Int?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  // relations
+  //              relations
   statut          StatutCommande?   @relation(fields: [statutId], references: [id])
   type            TypeCommande?     @relation(fields: [typeId], references: [id])
   fournisseur     Fournisseur?      @relation(fields: [fournisseurId], references: [id])
@@ -129,19 +130,19 @@ model Commande {
 }
 
 model CommandeDetail {
-  id          Int    @id @default(autoincrement())
-  commandeId  Int
-  productId   Int?
-  qteCommande Int?
-  unitePrice  Float?
-  remise      Float?
-  createdById Int?
+  id            Int           @id @default(autoincrement())
+  commandeId    Int
+  productId     Int?
+  qteCommande   Int?
+  unitePrice    Float?
+  remise        Float?
+  createdById   Int?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  // relations
+  //            relations
   commande      Commande     @relation(fields: [commandeId], references: [id])
   product       Produit?     @relation(fields: [productId], references: [id])
   createdBy     User?        @relation("CommandeDetailCreatedBy", fields: [createdById], references: [id])
@@ -152,7 +153,7 @@ model CommandeDetail {
 }
 
 model CommandeRecu {
-  id          Int      @id @default(autoincrement())
+  id          Int                      @id @default(autoincrement())
   commandeId  Int
   code        String?
   reference   String?
@@ -164,20 +165,20 @@ model CommandeRecu {
   qteRecu     Int?
   createdById Int?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
 
-  // relations
-  commande   Commande                @relation(fields: [commandeId], references: [id])
-  createdBy  User?                   @relation("CommandeRecuCreatedBy", fields: [createdById], references: [id])
-  versements CommandeVersementRecu[]
+  //          relations
+  commande    Commande                @relation(fields: [commandeId], references: [id])
+  createdBy   User?                   @relation("CommandeRecuCreatedBy", fields: [createdById], references: [id])
+  versements  CommandeVersementRecu[]
 
   @@map("commande_recus")
 }
 
 model CommandeVersementRecu {
-  id               Int      @id @default(autoincrement())
+  id               Int                      @id @default(autoincrement())
   recuId           Int?
   compteId         Int?
   typeDetailRecuId Int?
@@ -188,21 +189,21 @@ model CommandeVersementRecu {
   preuve           String?
   createdById      Int?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt        DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
 
-  // relations
-  recu           CommandeRecu?           @relation(fields: [recuId], references: [id])
-  createdBy      User?                   @relation(fields: [createdById], references: [id])
-  compte         CompteBancaire?         @relation(fields: [compteId], references: [id])
-  typeDetailRecu TypeDetailRecuCommande? @relation(fields: [typeDetailRecuId], references: [id])
+  //               relations
+  recu             CommandeRecu?           @relation(fields: [recuId], references: [id])
+  createdBy        User?                   @relation(fields: [createdById], references: [id])
+  compte           CompteBancaire?         @relation(fields: [compteId], references: [id])
+  typeDetailRecu   TypeDetailRecuCommande? @relation(fields: [typeDetailRecuId], references: [id])
 
   @@map("commande_versement_recu")
 }
 
 model CommandeAccuses {
-  id             Int       @id @default(autoincrement())
+  id             Int            @id @default(autoincrement())
   commandeId     Int?
   code           String?
   reference      String?
@@ -212,28 +213,28 @@ model CommandeAccuses {
   montant        Float?
   typeDocumentId Int?
   deletedAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  // relations
-  commande     Commande?     @relation(fields: [commandeId], references: [id])
-  typeDocument TypeDocument? @relation(fields: [typeDocumentId], references: [id])
+  //             relations
+  commande       Commande?     @relation(fields: [commandeId], references: [id])
+  typeDocument   TypeDocument? @relation(fields: [typeDocumentId], references: [id])
 
   @@map("commande_accuses")
 }
 
 model Programmation {
-  id            Int  @id @default(autoincrement())
-  commandeId    Int?
-  statutId      Int?
-  zoneId        Int?
-  camionId      Int?
-  chauffeurId   Int?
-  avaliseurId   Int?
-  createdById   Int?
-  validatedById Int?
+  id                Int                       @id @default(autoincrement())
+  commandeId        Int?
+  statutId          Int?
+  zoneId            Int?
+  camionId          Int?
+  chauffeurId       Int?
+  avaliseurId       Int?
+  createdById       Int?
+  validatedById     Int?
 
-  code              String    @unique
+  code              String                    @unique
   dateProgrammation DateTime?
   dateLivraison     DateTime?
   dateSortie        DateTime?
@@ -242,63 +243,83 @@ model Programmation {
   bl                String?
   newBl             String?
   observation       String?
+  livraisonComment  String?
   validatedAt       DateTime?
   preuve            String?
-  imprimer          Boolean   @default(false)
-  transfert         Boolean   @default(false)
+  imprimer          Boolean                   @default(false)
+  transfert         Boolean                   @default(false)
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt         DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
 
-  // relations
-  commande  Commande?               @relation(fields: [commandeId], references: [id])
-  zone      Zone?                   @relation(fields: [zoneId], references: [id])
-  statut    StatutProgrammation?    @relation(fields: [statutId], references: [id])
-  camion    Camion?                 @relation(fields: [camionId], references: [id])
-  chauffeur Chauffeur?              @relation(fields: [chauffeurId], references: [id])
-  avaliseur AvaliseurProgrammation? @relation(fields: [avaliseurId], references: [id])
-  ventes      Vente[]
+  //                relations
+  commande          Commande?                @relation(fields: [commandeId], references: [id])
+  zone              Zone?                    @relation(fields: [zoneId], references: [id])
+  statut            StatutProgrammation?     @relation(fields: [statutId], references: [id])
+  camion            Camion?                  @relation(fields: [camionId], references: [id])
+  chauffeur         Chauffeur?               @relation(fields: [chauffeurId], references: [id])
+  avaliseur         AvaliseurProgrammation?  @relation(fields: [avaliseurId], references: [id])
+  ventes            Vente[]
+  transferts        TransfertProgrammation[]
 
-  createdBy   User? @relation("ProgrammationCreatedBy", fields: [createdById], references: [id])
-  validatedBy User? @relation("ProgrammationValidatedBy", fields: [validatedById], references: [id])
+  createdBy         User?                    @relation("ProgrammationCreatedBy", fields: [createdById], references: [id])
+  validatedBy       User?                    @relation("ProgrammationValidatedBy", fields: [validatedById], references: [id])
 
   @@map("programmations")
 }
 
+model TransfertProgrammation {
+  id              Int             @id @default(autoincrement())
+  programmationId Int?
+  zoneSourceId    Int?
+  zoneDest     Int?
+  userId          Int?
+  date            DateTime?
+  qteReste        Float?
+  observation     String?
+
+  programmation   Programmation? @relation(fields: [programmationId], references: [id])
+  zoneSource      Zone?          @relation("TransfertZoneSource", fields: [zoneSourceId], references: [id])
+  zoneDestination Zone?          @relation("TransfertZoneDestination", fields: [zoneDest], references: [id])
+  user            User?          @relation(fields: [userId], references: [id])
+
+  @@map("transfert_programmations")
+}
+
 model Vente {
-  id Int @id @default(autoincrement())
+  id                        Int                         @id @default(autoincrement())
 
-  commandClientId    Int?
-  programmationId    Int?
-  statutId           Int?
-  produitId          Int?
-  typeId             Int?
-  typeFactureVenteId Int?
-  clientId           Int?
-  treatedById        Int?
-  createdById        Int?
-  validatedById      Int?
+  commandClientId           Int?
+  programmationId           Int?
+  statutId                  Int?
+  produitId                 Int?
+  typeId                    Int?
+  typeFactureVenteId        Int?
+  clientId                  Int?
+  treatedById               Int?
+  createdById               Int?
+  validatedById             Int?
 
-  code        String   @unique
-  date        DateTime
-  montant     Float?
-  unitePrice  Float?
-  qteTotal    Float?
-  remise      Float?
-  transport   Float?
-  destination String?
-  observation String?
-  preuve      String?
-  reglemented Boolean  @default(false)
+  code                      String                      @unique
+  date                      DateTime
+  montant                   Float?
+  unitePrice                Float?
+  qteTotal                  Float?
+  remise                    Float?
+  transport                 Float?
+  destination               String?
+  observation               String?
+  preuve                    String?
+  reglemented               Boolean                     @default(false)
 
-  deletedAt   DateTime?
-  validatedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  deletedAt                 DateTime?
+  validatedAt               DateTime?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
 
-  // relations
-  programmation            Programmation?            @relation(fields: [programmationId], references: [id])
+  //                        relations
+  programmation             Programmation?             @relation(fields: [programmationId], references: [id])
   commandeClient            CommandeClient?            @relation(fields: [commandClientId], references: [id])
   client                    Client?                    @relation(fields: [clientId], references: [id])
   createdBy                 User?                      @relation("VenteCreatedBy", fields: [createdById], references: [id])
@@ -317,39 +338,39 @@ model Vente {
 }
 
 model CommandeClient {
-  id Int @id @default(autoincrement())
+  id                   Int                    @id @default(autoincrement())
 
   statutId             Int?
   typeCommandeClientId Int?
   clientId             Int?
 
-  code    String   @unique
-  date    DateTime
-  montant Float
+  code                 String                 @unique
+  date                 DateTime
+  montant              Float
 
-  createdById   Int?
-  validatedById Int?
+  createdById          Int?
+  validatedById        Int?
 
-  deletedAt   DateTime?
-  validatedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  deletedAt            DateTime?
+  validatedAt          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
 
-  // relations
-  statut      StatutCommandeClient? @relation(fields: [statutId], references: [id])
-  type        TypeCommandeClient?   @relation(fields: [typeCommandeClientId], references: [id])
-  client      Client?               @relation(fields: [clientId], references: [id])
-  createdBy   User?                 @relation("CommandeClientCreatedBy", fields: [createdById], references: [id])
-  validatedBy User?                 @relation("CommandeClientValidatedBy", fields: [validatedById], references: [id])
-  ventes      Vente[]
+  //                   relations
+  statut               StatutCommandeClient? @relation(fields: [statutId], references: [id])
+  type                 TypeCommandeClient?   @relation(fields: [typeCommandeClientId], references: [id])
+  client               Client?               @relation(fields: [clientId], references: [id])
+  createdBy            User?                 @relation("CommandeClientCreatedBy", fields: [createdById], references: [id])
+  validatedBy          User?                 @relation("CommandeClientValidatedBy", fields: [validatedById], references: [id])
+  ventes               Vente[]
 
   @@map("commande_clients")
 }
 
 model VenteComptability {
-  id Int @id @default(autoincrement())
+  id                   Int        @id @default(autoincrement())
 
-  venteId              Int?   @unique
+  venteId              Int?       @unique
   aib                  Float?
   tva                  Float?
   ttcPrice             Float?
@@ -360,64 +381,64 @@ model VenteComptability {
   comptabilizedAt      DateTime?
   sentToComptabilityAt DateTime?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt            DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
-  // relations
-  vente  Vente? @relation(fields: [venteId], references: [id])
-  sender User?  @relation(fields: [senderToComptability], references: [id])
+  //                   relations
+  vente                Vente?    @relation(fields: [venteId], references: [id])
+  sender               User?     @relation(fields: [senderToComptability], references: [id])
 
   @@map("vente_comptabilities")
 }
 
 model Reglement {
-  id Int @id @default(autoincrement())
+  id                Int                      @id @default(autoincrement())
 
-  venteId          Int?
-  clientId         Int?
-  compteBancaireId Int?
-  createdById      Int?
-  validatedById    Int?
-  typeDetailRecuId Int?
+  venteId           Int?
+  clientId          Int?
+  compteBancaireId  Int?
+  createdById       Int?
+  validatedById     Int?
+  typeDetailRecuId  Int?
 
-  code      String?
-  reference String?
+  code              String?
+  reference         String?
 
   montant           Float
   date              DateTime
   preuve            String?
   comment           String?
   validationComment String?
-  deblocDette       Boolean  @default(false)
+  deblocDette       Boolean                  @default(false)
 
-  deletedAt   DateTime?
-  validatedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  deletedAt         DateTime?
+  validatedAt       DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
-  // relations
-  vente          Vente?                  @relation(fields: [venteId], references: [id])
-  client         Client?                 @relation(fields: [clientId], references: [id])
-  compteBancaire CompteBancaire?         @relation(fields: [compteBancaireId], references: [id])
-  createdBy      User?                   @relation("ReglementCreatedBy", fields: [createdById], references: [id])
-  validatedBy    User?                   @relation("ReglementValidatedBy", fields: [validatedById], references: [id])
-  typeDetailRecu TypeDetailRecuCommande? @relation(fields: [typeDetailRecuId], references: [id])
+  //                relations
+  vente             Vente?                  @relation(fields: [venteId], references: [id])
+  client            Client?                 @relation(fields: [clientId], references: [id])
+  compteBancaire    CompteBancaire?         @relation(fields: [compteBancaireId], references: [id])
+  createdBy         User?                   @relation("ReglementCreatedBy", fields: [createdById], references: [id])
+  validatedBy       User?                   @relation("ReglementValidatedBy", fields: [validatedById], references: [id])
+  typeDetailRecu    TypeDetailRecuCommande? @relation(fields: [typeDetailRecuId], references: [id])
 
   @@map("reglements")
 }
 
 model Approvisionnement {
-  id Int @id @default(autoincrement())
+  id                Int                      @id @default(autoincrement())
 
-  clientId         Int?
-  compteBancaireId Int?
-  createdById      Int?
-  validatedById    Int?
-  typeDetailRecuId Int?
+  clientId          Int?
+  compteBancaireId  Int?
+  createdById       Int?
+  validatedById     Int?
+  typeDetailRecuId  Int?
 
-  code      String?
-  reference String?
+  code              String?
+  reference         String?
 
   montant           Float
   date              DateTime
@@ -425,75 +446,75 @@ model Approvisionnement {
   comment           String?
   validationComment String?
 
-  deletedAt   DateTime?
-  validatedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  deletedAt         DateTime?
+  validatedAt       DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
-  // relations
-  client         Client?                 @relation(fields: [clientId], references: [id])
-  compteBancaire CompteBancaire?         @relation(fields: [compteBancaireId], references: [id])
-  createdBy      User?                   @relation("ReglementCreatedBy", fields: [createdById], references: [id])
-  validatedBy    User?                   @relation("ReglementValidatedBy", fields: [validatedById], references: [id])
-  typeDetailRecu TypeDetailRecuCommande? @relation(fields: [typeDetailRecuId], references: [id])
+  //                relations
+  client            Client?                 @relation(fields: [clientId], references: [id])
+  compteBancaire    CompteBancaire?         @relation(fields: [compteBancaireId], references: [id])
+  createdBy         User?                   @relation("ApprovisionnementCreatedBy", fields: [createdById], references: [id])
+  validatedBy       User?                   @relation("ApprovisionnementValidatedBy", fields: [validatedById], references: [id])
+  typeDetailRecu    TypeDetailRecuCommande? @relation(fields: [typeDetailRecuId], references: [id])
 
   @@map("approvisionnements")
 }
 
 model DemandeModificationVente {
-  id Int @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
 
   venteId       Int?
   clientId      Int?
   createdById   Int?
   validatedById Int?
 
-  code   String?
-  raison String
+  code          String?
+  raison        String
 
-  date     DateTime
-  preuve   String?
-  modified Boolean  @default(false)
+  date          DateTime
+  preuve        String?
+  modified      Boolean    @default(false)
 
-  deletedAt   DateTime?
-  validatedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  deletedAt     DateTime?
+  validatedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  // relations
-  vente       Vente?  @relation(fields: [venteId], references: [id])
-  client      Client? @relation(fields: [clientId], references: [id])
-  createdBy   User?   @relation("DemandeModificationVenteCreatedBy", fields: [createdById], references: [id])
-  validatedBy User?   @relation("DemandeModificationVenteValidatedBy", fields: [validatedById], references: [id])
+  //            relations
+  vente         Vente?    @relation(fields: [venteId], references: [id])
+  client        Client?   @relation(fields: [clientId], references: [id])
+  createdBy     User?     @relation("DemandeModificationVenteCreatedBy", fields: [createdById], references: [id])
+  validatedBy   User?     @relation("DemandeModificationVenteValidatedBy", fields: [validatedById], references: [id])
 
   @@map("demande_modification_ventes")
 }
 
 model DemandeSuppressionVente {
-  id Int @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
 
   venteId       Int?
   clientId      Int?
   createdById   Int?
   validatedById Int?
 
-  code   String?
-  raison String
+  code          String?
+  raison        String
 
-  date    DateTime
-  preuve  String?
-  deleted Boolean  @default(false)
+  date          DateTime
+  preuve        String?
+  deleted       Boolean    @default(false)
 
-  deletedAt   DateTime?
-  validatedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  deletedAt     DateTime?
+  validatedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  // relations
-  vente       Vente?  @relation(fields: [venteId], references: [id])
-  client      Client? @relation(fields: [clientId], references: [id])
-  createdBy   User?   @relation("DemandeSuppressionVenteCreatedBy", fields: [createdById], references: [id])
-  validatedBy User?   @relation("DemandeSuppressionVenteValidatedBy", fields: [validatedById], references: [id])
+  //            relations
+  vente         Vente?    @relation(fields: [venteId], references: [id])
+  client        Client?   @relation(fields: [clientId], references: [id])
+  createdBy     User?     @relation("DemandeSuppressionVenteCreatedBy", fields: [createdById], references: [id])
+  validatedBy   User?     @relation("DemandeSuppressionVenteValidatedBy", fields: [validatedById], references: [id])
 
   @@map("demande_suppression_ventes")
 }
@@ -506,8 +527,8 @@ model DemandeSuppressionVente {
 model RolePermission {
   roleId       Int
   permissionId Int
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   role         Role       @relation(fields: [roleId], references: [id])
   permission   Permission @relation(fields: [permissionId], references: [id])
 
@@ -519,84 +540,84 @@ model RolePermission {
  * Les entités à migrer après
  */
 model Fournisseur {
-  id             Int     @id @default(autoincrement())
+  id             Int         @id @default(autoincrement())
   sigle          String?
-  raison_sociale String? @unique
-  phone          String? @unique
-  email          String? @unique
+  raison_sociale String?     @unique
+  phone          String?     @unique
+  email          String?     @unique
   adresse        String?
 
-  deletedAt DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  commandes Commande[]
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  commandes      Commande[]
 
   @@map("fournisseurs")
 }
 
 model Camion {
-  id              Int     @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   marqueId        Int?
-  immatriculation String  @unique
+  immatriculation String           @unique
   libelle         String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  // relations
-  marque         Marque?         @relation(fields: [marqueId], references: [id])
-  programmations Programmation[]
+  //              relations
+  marque          Marque?         @relation(fields: [marqueId], references: [id])
+  programmations  Programmation[]
 
   @@map("camions")
 }
 
 model Chauffeur {
-  id       Int     @id @default(autoincrement())
-  fullname String  @unique
-  permis   String?
-  phone    String? @unique
+  id             Int              @id @default(autoincrement())
+  fullname       String           @unique
+  permis         String?
+  phone          String?          @unique
 
   deletedAt      DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   programmations Programmation[]
 
   @@map("chauffeurs")
 }
 
 model AvaliseurProgrammation {
-  id       Int     @id @default(autoincrement())
-  fullname String  @unique
-  phone    String? @unique
-  email    String? @unique
+  id             Int              @id @default(autoincrement())
+  fullname       String           @unique
+  phone          String?          @unique
+  email          String?          @unique
 
   deletedAt      DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   programmations Programmation[]
 
   @@map("avaliseur_programmations")
 }
 
 model Client {
-  id Int @id @default(autoincrement())
+  id                        Int                         @id @default(autoincrement())
 
-  zoneId   Int?
-  statutId Int?
-  typeId   Int?
+  zoneId                    Int?
+  statutId                  Int?
+  typeId                    Int?
 
-  raison_sociale String
-  profil         String?
-  phone          String? @unique
-  email          String? @unique
-  adresse        String?
+  raison_sociale            String
+  profil                    String?
+  phone                     String?                     @unique
+  email                     String?                     @unique
+  adresse                   String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt                 DateTime?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
 
-  // relations
+  //                        relations
   zone                      Zone?                      @relation(fields: [zoneId], references: [id])
   statut                    StatutClient?              @relation(fields: [statutId], references: [id])
   type                      TypeClient?                @relation(fields: [typeId], references: [id])
@@ -612,46 +633,46 @@ model Client {
 }
 
 model OldDette {
-  id       Int    @id @default(autoincrement())
-  clientId Int    @unique
-  dette    Float?
-  solved   Float?
+  id        Int        @id @default(autoincrement())
+  clientId  Int        @unique
+  dette     Float?
+  solved    Float?
 
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  // relations
-  client Client @relation(fields: [clientId], references: [id])
+  //        relations
+  client    Client    @relation(fields: [clientId], references: [id])
 
   @@map("olddettes")
 }
 
 model Banque {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int               @id @default(autoincrement())
+  name        String            @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  comptes CompteBancaire[]
+  comptes     CompteBancaire[]
 
   @@map("banques")
 }
 
 model CompteBancaire {
-  id       Int     @id @default(autoincrement())
-  banqueId Int?
-  numero   String  @unique
-  intitule String?
+  id                 Int                      @id @default(autoincrement())
+  banqueId           Int?
+  numero             String                   @unique
+  intitule           String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt          DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
-  // relations
+  //                 relations
   banque             Banque?                 @relation(fields: [banqueId], references: [id])
   versements         CommandeVersementRecu[]
   reglements         Reglement[]
@@ -661,48 +682,48 @@ model CompteBancaire {
 }
 
 model Produit {
-  id               Int     @id @default(autoincrement())
-  name             String  @unique
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
   description      String?
   fournisseurPrice Float?
   typeId           Int?
   image            String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  // relations
-  type           TypeProduit?     @relation(fields: [typeId], references: [id])
-  ventes         Vente[]
-  commandDetails CommandeDetail[]
+  //               relations
+  type             TypeProduit?     @relation(fields: [typeId], references: [id])
+  ventes           Vente[]
+  commandDetails   CommandeDetail[]
 
   @@map("produits")
 }
 
 model Agent {
-  id     Int     @id @default(autoincrement())
-  nom    String
-  prenom String
-  phone  String? @unique
+  id        Int        @id @default(autoincrement())
+  nom       String
+  prenom    String
+  phone     String?    @unique
 
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   @@map("agents")
 }
 
 model Representant {
-  id     Int     @id @default(autoincrement())
-  nom    String
-  prenom String
-  phone  String? @unique
-  email  String? @unique
+  id        Int        @id @default(autoincrement())
+  nom       String
+  prenom    String
+  phone     String?    @unique
+  email     String?    @unique
 
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   zones     Zone[]
 
   @@map("representants")
@@ -713,55 +734,58 @@ model Representant {
  */
 
 model Zone {
-  id             Int     @id @default(autoincrement())
-  name           String  @unique
-  description    String?
-  representantId Int?
+  id                    Int                       @id @default(autoincrement())
+  name                  String                    @unique
+  description           String?
+  representantId        Int?
 
-  deletedAt      DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  clients        Client[]
-  programmations Programmation[]
-  representant   Representant?   @relation(fields: [representantId], references: [id])
+  deletedAt             DateTime?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  clients               Client[]
+  transferts            TransfertProgrammation[] @relation("TransfertZoneSource")
+  transfertDestinations TransfertProgrammation[] @relation("TransfertZoneDestination")
+  // transferts     TransfertProgrammation[]
+  programmations        Programmation[]
+  representant          Representant?            @relation(fields: [representantId], references: [id])
 
   @@map("zones")
 }
 
 model StatutCommande {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  commandes Commande[]
+  deletedAt   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  commandes   Commande[]
 
   @@map("statut_commandes")
 }
 
 model TypeCommande {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  commandes Commande[]
+  deletedAt   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  commandes   Commande[]
 
   @@map("type_commandes")
 }
 
 model TypeDocument {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
+  id              Int                @id @default(autoincrement())
+  name            String             @unique
+  description     String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   commandeAccuses CommandeAccuses[]
 
@@ -769,13 +793,13 @@ model TypeDocument {
 }
 
 model TypeDetailRecuCommande {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
+  id                     Int                      @id @default(autoincrement())
+  name                   String                   @unique
+  description            String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt              DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
 
   CommandeVersementRecus CommandeVersementRecu[]
   reglements             Reglement[]
@@ -785,53 +809,53 @@ model TypeDetailRecuCommande {
 }
 
 model TypeFactureVente {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  ventes Vente[]
+  ventes      Vente[]
 
   @@map("type_factures_vente")
 }
 
 model StatutProgrammation {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
+  id             Int              @id @default(autoincrement())
+  name           String           @unique
+  description    String?
 
   deletedAt      DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   programmations Programmation[]
 
   @@map("statut_programmations")
 }
 
 model StatutCommandeClient {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  description     String?
 
   deletedAt       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   commandeClients CommandeClient[]
 
   @@map("statut_commande_clients")
 }
 
 model TypeCommandeClient {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  description     String?
 
   deletedAt       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   commandeClients CommandeClient[]
   ventes          Vente[]
 
@@ -839,26 +863,26 @@ model TypeCommandeClient {
 }
 
 model StatutVente {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  ventes    Vente[]
+  deletedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  ventes      Vente[]
 
   @@map("statut_ventes")
 }
 
 model TypeProduit {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  description     String?
 
   deletedAt       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   commandeDetails CommandeDetail[]
   produits        Produit[]
 
@@ -866,40 +890,40 @@ model TypeProduit {
 }
 
 model StatutClient {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  clients   Client[]
+  deletedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  clients     Client[]
 
   @@map("statut_clients")
 }
 
 model TypeClient {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  clients   Client[]
+  deletedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  clients     Client[]
 
   @@map("type_clients")
 }
 
 model Marque {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
   description String?
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  camions   Camion[]
+  deletedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  camions     Camion[]
 
   @@map("marques")
 }

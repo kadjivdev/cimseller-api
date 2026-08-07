@@ -35,7 +35,7 @@ const login = async (req, res) => {
             }
         });
 
-          // recherche de l'utilisateur pour les cookies
+        // recherche de l'utilisateur pour les cookies
         const userForCookies = await prisma.user.findFirst({
             where: { email, deletedAt: null },
         });
@@ -84,17 +84,28 @@ const login = async (req, res) => {
 
         // envoi des tokens dans des cookies sécurisés
         res.cookie("access_token", access_token, {
-            httpOnly: false,
+            httpOnly: true,
             secure: isProduction,
-            // sameSite: "None",
             sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
             maxAge: parseInt(process.env.JWT_EXPIRES_IN) * 1000 // 1h minutes en ms
         });
 
+        /**
+         *  envoie isLoggedIn(booleen) pour indiquer que le user est connecté
+         * vu qu'on ne peut pas avoir accès au cookie access_token via Javascript
+         * pour savoir si le user est connecté ou pas
+         *  */
+        // res.cookie("isLoggedIn", true, {
+        //     httpOnly: false,
+        //     secure: isProduction,
+        //     // sameSite: "None",
+        //     sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
+        //     maxAge: parseInt(process.env.JWT_EXPIRES_IN) * 1000 // 1h minutes en ms
+        // });
+
         res.cookie("refresh_token", refresh_token, {
-            httpOnly: false,
+            httpOnly: true,
             secure: isProduction,
-            // sameSite: "None",
             sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
             maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN) * 1000 // 1 J en ms
         });
@@ -163,23 +174,10 @@ const logout = async (req, res) => {
             return res.status(401).json({ error: 'Refresh token is required' });
         }
 
-        // Optionnel : supprimer le refresh token stocké en base
-        // await prisma.refreshToken.deleteMany({ where: { token: refresh_token } });
-
         const isProduction = process.env.NODE_ENV === "production";
 
-        res.clearCookie("access_token", {
-            httpOnly: false,
-            secure: isProduction,
-            sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prodODE_ENV === "production",
-        });
-
-        res.clearCookie("refresh_token", {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === "production",
-            secure: isProduction,
-            sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prodODE_ENV === "production",
-        });
+        res.clearCookie("access_token");
+        res.clearCookie("refresh_token");
 
         console.log("deconnecté.e avec succès")
         res.json({ message: 'Logged out successfully' });

@@ -106,7 +106,8 @@
   <table>
     <thead>
       <tr>
-        <th>Code</th>
+        <th>Code Bon</th>
+        <th>Code Prog</th>
         <th>Zone</th>
         <th>Camion</th>
         <th>Chauffeur</th>
@@ -119,6 +120,9 @@
     <tbody>
       <% programmations.forEach(p=> { %>
         <tr>
+          <td>
+            <%= p.commande?.code %>
+          </td>
           <td>
             <%= p.code %>
           </td>
@@ -147,7 +151,7 @@
         <% }) %>
 
           <tr class="qte">
-            <td colspan="7" class="bordertd" style="padding: 5px"><b>Total</b></td>
+            <td colspan="8" class="bordertd" style="padding: 5px"><b>Total</b></td>
             <td colspan="2" class="text-right bordertd" style="padding: 5px"><b>
                 <%= programmations.reduce((total,pr)=>(total+pr.qteProgrammer),0) %> Tonne(s)
               </b></td>

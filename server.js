@@ -16,6 +16,10 @@ import fournisseurRoutes from "./routes/api/fournisseurs.js";
 // tool's routes
 import produitRoutes from "./routes/api/tools/produits.js"
 import produiTypeRoutes from "./routes/api/tools/produitTypes.js"
+
+import venteTypeRoutes from "./routes/api/tools/venteTypes.js"
+import typeFactureVenteRoutes from "./routes/api/tools/typeVenteFacture.js"
+
 import documentTypeRoutes from "./routes/api/tools/documentTypes.js"
 import detailRecuTypeRoutes from "./routes/api/tools/detailRecuTypes.js"
 import zoneRoutes from "./routes/api/tools/zones.js"
@@ -92,6 +96,10 @@ app.use('/api/representants', representantRoutes);
 app.use('/api/banques', banqueRoutes);
 app.use('/api/compte-bancaires', compteBancaireRoutes);
 app.use('/api/agents', agentRoutes);
+
+app.use('/api/ventes/types', venteTypeRoutes);
+app.use('/api/ventes/types-facture', typeFactureVenteRoutes);
+
 
 app.use('/api/marques', marqueRoutes);
 app.use('/api/chauffeurs', chauffeurRoutes);

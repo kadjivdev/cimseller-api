@@ -1,114 +1,83 @@
 import { z } from 'zod';
 
+const intField = (label = "Ce champ") =>
+    z.int({
+        error: (issue) =>
+            issue.input === undefined
+                ? `${label} est réquis`
+                : `${label} doit être un entier`,
+    });
+
+// pour les champs numériques venant de <input type="number"> (string côté form)
+const numberField = (label = "Ce champ") =>
+    z.coerce.number({
+        error: (issue) =>
+            issue.input === undefined || issue.input === ""
+                ? `${label} est réquis`
+                : `${label} doit être de format numérique`,
+    });
+
+const stringField = (label = "Ce champ") =>
+    z.string({
+        error: (issue) =>
+            issue.input === undefined
+                ? `${label} est réquis`
+                : `${label} doit être de format string`,
+    });
+
 // ventes validation schema
 const venteValidation = z.object({
-    code: z
-        .string("Ce champ doit être un entier")
-        .optional(),
+    code: z.string("Ce champ doit être une chaîne").optional(),
 
-    commandClientId: z
-        .int({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un entier"
+    commandClientId: intField().optional(),
+
+    statutId: intField().optional(), // requis, pas de .optional()
+
+    produitId: intField().optional(),
+    programmationId: intField().optional(),
+
+    typeId: intField().optional(),
+
+    typeFactureVenteId: intField().optional(),
+
+    clientCommanderId: intField().optional(), // le client qui a passé la commande
+    clientId: intField().optional(), // le client payeur
+
+    date: z.coerce
+        .date({
+            error: (issue) =>
+                issue.input === undefined
+                    ? "La date est requise"
+                    : "Ce champ doit être une date",
         })
-        .optional(),
-
-    statutId: z
-        .int({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un entier"
+        .refine((date) => date <= new Date(), {
+            message: "La date doit être antérieure ou égale à aujourd'hui",
         }),
 
-    produitId: z
-        .int({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un entier"
-        })
-        .optional(),
+    montant: numberField().optional(),
 
-    typeId: z
-        .int({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un entier"
-        })
-        .optional(),
+    unitePrice: numberField("Le prix unitaire").optional(),
 
-    typeFactureVenteId: z
-        .int({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un entier"
-        })
-        .optional(),
+    qteTotal: numberField("La quantité totale").optional(),
 
-    clientId: z
-        .int({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un entier"
-        })
-        .optional(),
+    remise: numberField("La remise").optional(),
 
-    date: z.coerce.date({
-        invalid_type_error: "Ce champ doit être une date",
-        required_error: "La date est requise"
-    }).refine(
-        (date) => date <= new Date(),
-        {
-            message: "La date doit être antérieure ou égale à aujourd'hui",
-        }
-    ),
+    transport: numberField("Le transport").optional(),
 
-    montant: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        })
-        .optional(),
+    destination: stringField("La destination").optional(),
 
-    unitePrice: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        }).optional(),
-
-    qteTotal: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        }).optional(),
-
-    remise: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        }).optional(),
-
-    transport: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        }).optional(),
-
-    destination: z
-        .string({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        }).optional(),
-
-    preuve: z
-        .string({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        }).optional(),
+    preuve: stringField("La preuve").optional(),
 
     reglemented: z
         .boolean({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être de format numérique"
-        }).optional(),
-
-    observation: z
-        .string("Ce champ doit être de format string")
+            error: (issue) =>
+                issue.input === undefined
+                    ? "Ce champ est réquis"
+                    : "Ce champ doit être un booléen",
+        })
         .optional(),
+
+    observation: z.string("Ce champ doit être de format string").optional(),
 });
 
 export { venteValidation };
