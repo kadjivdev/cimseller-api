@@ -1,14 +1,13 @@
 import { z } from 'zod';
 
 const intField = (label = "Ce champ") =>
-    z.int({
+    z.coerce.number({
         error: (issue) =>
-            issue.input === undefined
+            issue.input === undefined || issue.input === ""
                 ? `${label} est réquis`
                 : `${label} doit être un entier`,
-    });
+    }).int(`${label} doit être un entier`);
 
-// pour les champs numériques venant de <input type="number"> (string côté form)
 const numberField = (label = "Ce champ") =>
     z.coerce.number({
         error: (issue) =>
@@ -25,23 +24,34 @@ const stringField = (label = "Ce champ") =>
                 : `${label} doit être de format string`,
     });
 
+const booleanField = (label = "Ce champ") =>
+    z.preprocess(
+        (val) => {
+            if (val === 'true' || val === true) return true
+            if (val === 'false' || val === false) return false
+            if (val === '' || val === null || val === undefined) return undefined
+            return val
+        },
+        z.boolean({
+            error: (issue) =>
+                issue.input === undefined
+                    ? `${label} est réquis`
+                    : `${label} doit être un booléen`,
+        })
+    );
+
 // ventes validation schema
 const venteValidation = z.object({
     code: z.string("Ce champ doit être une chaîne").optional(),
 
     commandClientId: intField().optional(),
-
-    statutId: intField().optional(), // requis, pas de .optional()
-
+    // statutId: intField(), // requis
     produitId: intField().optional(),
     programmationId: intField().optional(),
-
     typeId: intField().optional(),
-
     typeFactureVenteId: intField().optional(),
-
-    clientCommanderId: intField().optional(), // le client qui a passé la commande
-    clientId: intField().optional(), // le client payeur
+    clientCommanderId: intField().optional(),
+    clientId: intField().optional(),
 
     date: z.coerce
         .date({
@@ -55,27 +65,14 @@ const venteValidation = z.object({
         }),
 
     montant: numberField().optional(),
-
     unitePrice: numberField("Le prix unitaire").optional(),
-
     qteTotal: numberField("La quantité totale").optional(),
-
     remise: numberField("La remise").optional(),
-
     transport: numberField("Le transport").optional(),
-
     destination: stringField("La destination").optional(),
-
     preuve: stringField("La preuve").optional(),
 
-    reglemented: z
-        .boolean({
-            error: (issue) =>
-                issue.input === undefined
-                    ? "Ce champ est réquis"
-                    : "Ce champ doit être un booléen",
-        })
-        .optional(),
+    reglemented: booleanField().optional(),
 
     observation: z.string("Ce champ doit être de format string").optional(),
 });

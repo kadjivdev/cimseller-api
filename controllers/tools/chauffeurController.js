@@ -69,7 +69,9 @@ const getChauffeurs = async (req, res) => {
 };
 
 const createChauffeur = async (req, res) => {
-    console.log("Req body : ", req.body)
+    console.log("Insersion du chauffeur :", req.body)
+    console.log("permis: req.file?.filename :", req.file?.filename)
+
     try {
         const imageCheck = validateImageFile(req.file, { required: false });
         if (!imageCheck.ok) {
@@ -78,7 +80,6 @@ const createChauffeur = async (req, res) => {
 
         const result = chauffeurValidation.safeParse({
             ...req.body,
-            permis: req.file ? req.file.filename : undefined,
         });
 
         if (!result.success) {
@@ -112,7 +113,7 @@ const createChauffeur = async (req, res) => {
         const newChauffeur = await prisma.chauffeur.create({
             data: {
                 ...result.data,
-                permis: req.file?.filename??null
+                permis: req.file ? req.file.filename : undefined,
             },
         });
 

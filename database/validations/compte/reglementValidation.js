@@ -3,57 +3,54 @@ import { z } from 'zod';
 // reglement validation schema
 const reglementValidation = z.object({
 
-    venteId: z.coerce.number("Ce champ doit être un entier")
+    venteId: z.coerce.number({ error: "Ce champ doit être un entier" })
         .int("Ce champ doit être un entier"),
 
-    clientId: z.coerce.number("Ce champ doit être un entier")
+    clientId: z.coerce.number({ error: "Ce champ doit être un entier" })
         .int("Ce champ doit être un entier"),
 
-    compteBancaireId: z.coerce.number("Ce champ doit être un entier")
+    compteBancaireId: z.coerce.number({ error: "Ce champ doit être un entier" })
         .int("Ce champ doit être un entier"),
 
-    typeDetailRecuId: z.coerce.number("Ce champ doit être un entier")
+    typeDetailRecuId: z.coerce.number({ error: "Ce champ doit être un entier" })
         .int("Ce champ doit être un entier"),
 
     code: z
-        .string("Ce champ doit être un string")
+        .string({ error: "Ce champ doit être un string" })
         .nullish(),
+
     reference: z
-        .string("Ce champ doit être un string")
+        .string({ error: "Ce champ doit être un string" })
         .nullish(),
 
+    montant: z.coerce.number({ error: "Le montant est requis et doit être numérique" }),
 
-    montant: z.coerce.number({
-        required_error: "Le montant est réquis",
-        invalid_type_error: "Ce champ doit être de format numérique",
-    }),
-
-    date: z.coerce.date({
-        invalid_type_error: "Ce champ doit être une date",
-        required_error: "La date est requise"
-    }),
+    date: z.coerce.date({ error: "La date est requise et doit être valide" })
+        .refine((val) => val <= new Date(), {
+            message: "La date ne peut pas être postérieure à aujourd'hui",
+        }),
 
     preuve: z
-        .string("La preuve doit être une chaîne")
+        .string({ error: "La preuve doit être une chaîne" })
         .nullish(),
 
-    comment: z.string({
-        required_error: "Le commentaire est requis",
-        invalid_type_error: "Le commentaire doit être une chaîne de caractères",
-    })
+    comment: z
+        .string({ error: "Le commentaire doit être une chaîne de caractères" })
         .nullish(),
 
-    validationComment: z.string({
-        required_error: "Le commentaire est requis",
-        invalid_type_error: "Le commentaire doit être une chaîne de caractères",
-    })
+    validationComment: z
+        .string({ error: "Le commentaire doit être une chaîne de caractères" })
         .nullish(),
 
-    deblocDette: z.boolean({
-        required_error: "Le champ deblocDette est requis",
-        invalid_type_error: "Le champ deblocDette doit être un booléen",
-    })
-        .nullish(),
+    deblocDette: z.preprocess(
+        (val) => {
+            if (val === 'true' || val === true) return true
+            if (val === 'false' || val === false) return false
+            if (val === '' || val === null || val === undefined) return undefined
+            return val
+        },
+        z.boolean({ error: "Le champ deblocDette doit être un booléen" }).nullish()
+    ),
 });
 
 export { reglementValidation };

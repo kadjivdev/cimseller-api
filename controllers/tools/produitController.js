@@ -74,6 +74,9 @@ const getProduits = async (req, res) => {
 };
 
 const createProduit = async (req, res) => {
+    console.log("Insersion du produit :", req.body)
+    console.log("image: req.file?.filename :", req.file?.filename)
+
     await prisma.$transaction(async (tx) => {
         try {
             const imageCheck = validateImageFile(req.file, { required: false });
@@ -83,11 +86,10 @@ const createProduit = async (req, res) => {
 
             const result = produitValidation.safeParse({
                 ...req.body,
-                image: req.file?.filename,
             });
 
             if (!result.success) {
-                return res.status(400).json({
+                return res.status(402).json({
                     errors: result.error.format(),
                 });
             }
@@ -103,7 +105,10 @@ const createProduit = async (req, res) => {
             }
 
             const newProduit = await tx.produit.create({
-                data: { ...result.data },
+                data: {
+                    ...result.data,
+                    image: req.file?.filename
+                },
             });
 
             res.status(201).json(newProduit);
@@ -115,7 +120,9 @@ const createProduit = async (req, res) => {
 };
 
 const updateProduit = async (req, res) => {
-    console.log("Debut d'update de produit", req.file)
+    console.log("Insersion du produit :", req.body)
+    console.log("image: req.file?.filename :", req.file?.filename)
+
     let { id } = req.params;
 
     await prisma.$transaction(async (tx) => {
@@ -130,7 +137,6 @@ const updateProduit = async (req, res) => {
 
             const result = produitValidation.safeParse({
                 ...req.body,
-                ...(req.file && { image: req.file.filename }),
             });
 
             if (!result.success) {
@@ -151,7 +157,10 @@ const updateProduit = async (req, res) => {
 
             const updatedProduit = await tx.produit.update({
                 where: { id: parseInt(id) },
-                data: { ...result.data },
+                data: {
+                    ...result.data,
+                    ...(req.file && { image: req.file.filename }),
+                },
             });
 
             console.log("Fin d'update de produit")

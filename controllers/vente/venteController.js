@@ -18,7 +18,12 @@ const formatVente = (vente) => {
     let reglementAmount = vente.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
     let reste = vente.montant - reglementAmount
 
-    const data = { ...vente, reglementAmount, reste, preuve: toImageUrl(vente.preuve) }
+    const data = {
+        ...vente,
+        reglementAmount,
+        reste,
+        preuve: toImageUrl(vente.preuve)
+    }
 
     console.log("Data :", data)
     return {
@@ -31,6 +36,7 @@ const ALLOWED_IMAGE_TYPES = [
     'image/jpeg',
     'image/jpg',
     'image/webp',
+    'application/pdf',
 ];
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
@@ -106,7 +112,7 @@ const getVentes = async (req, res) => {
             }
         });
 
-        res.json(ventes);
+        res.json(ventes.map(formatData));
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch ventes' });
@@ -134,6 +140,176 @@ const getValidatedVentes = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch validated ventes' });
         throw error;
+    }
+};
+
+// Get all daly ventes from the database and log them
+const getDallyVentes = async (req, res) => {
+    console.log("Getting daly ventes")
+
+    try {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const ventes = await prisma.vente.findMany({
+            where: {
+                deletedAt: null,
+                createdAt: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                }
+            },
+            orderBy: { id: 'desc' },
+            include: {
+                programmation: true,
+                commandeClient: {
+                    include: {
+                        client: true
+                    }
+                },
+                client: true,
+                produit: true,
+                type: true,
+                statut: true,
+                typeFactureVente: true,
+                createdBy: true,
+                validatedBy: true,
+            }
+        });
+
+        res.json(ventes.map(formatVente));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated ventes' });
+    }
+};
+
+// Get all no comptabilized ventes from the database and log them
+const getNoComptabilizedVentes = async (req, res) => {
+    console.log("Getting no comptabilised ventes")
+
+    try {
+        const ventes = await prisma.vente.findMany({
+            where: {
+                validatedAt: { not: null },
+                deletedAt: null,
+                venteComptability: {
+                    is: null
+                }
+            },
+            orderBy: { id: 'desc' },
+            include: {
+                programmation: true,
+                commandeClient: {
+                    include: {
+                        client: true
+                    }
+                },
+                client: true,
+                produit: true,
+                type: true,
+                statut: true,
+                typeFactureVente: true,
+                createdBy: true,
+                validatedBy: true,
+            }
+        });
+
+        res.json(ventes.map(formatVente));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated ventes' });
+    }
+};
+
+// Get all comptabilized ventes from the database and log them
+const getComptabilizedVentes = async (req, res) => {
+    console.log("Getting comptabilised ventes")
+
+    try {
+        const ventes = await prisma.vente.findMany({
+            where: {
+                deletedAt: null,
+                venteComptability: {
+                    isNot: null
+                }
+            },
+            orderBy: { id: 'desc' },
+            include: {
+                venteComptability: {
+                    include: {
+                        sender: {
+                            select: { fullname: true }
+                        }
+                    }
+                },
+                programmation: true,
+                commandeClient: {
+                    include: {
+                        client: true
+                    }
+                },
+                client: true,
+                produit: true,
+                type: true,
+                statut: true,
+                typeFactureVente: true,
+                createdBy: true,
+                validatedBy: true,
+            }
+        });
+
+        res.json(ventes.map(formatVente));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated ventes' });
+    }
+};
+
+// Get all no traited ventes à traiter from the database and log them
+const getNoTraitedVentes = async (req, res) => {
+    console.log("Getting np traited ventes")
+
+    try {
+        const ventes = await prisma.vente.findMany({
+            where: {
+                deletedAt: null,
+                venteComptability: {
+                    is: { treatedAt: null }
+                }
+            },
+            orderBy: { id: 'desc' },
+            include: {
+                venteComptability: {
+                    include: {
+                        sender: {
+                            select: { fullname: true }
+                        }
+                    }
+                },
+                programmation: true,
+                commandeClient: {
+                    include: {
+                        client: true
+                    }
+                },
+                client: true,
+                produit: true,
+                type: true,
+                statut: true,
+                typeFactureVente: true,
+                createdBy: true,
+                validatedBy: true,
+            }
+        });
+
+        res.json(ventes.map(formatVente));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated ventes' });
     }
 };
 
@@ -175,11 +351,6 @@ const createVente = async (req, res) => {
                 }
             }
 
-            if (resultVente.data?.produitId) {
-                const produit = await tx.produit.findFirst({ where: { id: resultVente.data.produitId } });
-                if (!produit) throw { errorStatus: 404, payLoad: { error: 'Ce produit n\'existe pas' } };
-            }
-
             if (resultVente.data?.typeId) {
                 const type = await tx.typeCommandeClient.findFirst({ where: { id: resultVente.data.typeId } });
                 if (!type) throw { errorStatus: 404, payLoad: { error: 'Ce type de commande client n\'existe pas' } };
@@ -193,6 +364,23 @@ const createVente = async (req, res) => {
             if (resultVente.data?.clientId) {
                 const client = await tx.client.findFirst({ where: { id: resultVente.data.clientId } });
                 if (!client) throw { errorStatus: 404, payLoad: { error: 'Ce client n\'existe pas' } };
+            }
+
+            let programmation = null;
+            if (resultVente.data?.programmationId) {
+                programmation = await tx.programmation.findFirst({
+                    where: { id: parseInt(resultVente.data.programmationId), deletedAt: null },
+                    include: {
+                        commande: {
+                            include: {
+                                commandeDetails: {
+                                    where: { deletedAt: null },
+                                }
+                            }
+                        }
+                    }
+                });
+                if (!programmation) throw { errorStatus: 404, payLoad: { error: 'Cette programmation n\'existe pas' } };
             }
 
             let commandeClient = null;
@@ -230,6 +418,7 @@ const createVente = async (req, res) => {
             const newVente = await tx.vente.create({
                 data: {
                     ...venteData,
+                    produitId: programmation?.commande?.commandeDetails?.[0]?.productId,
                     commandClientId: commandeClient?.id,
                     montant,
                     createdById: user?.id,
@@ -273,10 +462,9 @@ const retrieveVente = async (req, res) => {
                     statut: true,
                     type: true,
                     typeFactureVente: true,
-                    reglements: true,
                     venteComptability: true,
                     reglements: {
-                        // where: { validatedAt: { not: null } },
+                        where: { deletedAt: null },
                         include: {
                             createdBy: true,
                             validatedBy: true,
@@ -507,4 +695,16 @@ const deleteVente = async (req, res) => {
     }
 };
 
-export { getVentes, getValidatedVentes, retrieveVente, createVente, updateVente, validateVente, deleteVente };
+export {
+    getVentes,
+    getNoTraitedVentes,
+    getComptabilizedVentes,
+    getNoComptabilizedVentes,
+    getDallyVentes,
+    getValidatedVentes,
+    retrieveVente,
+    createVente,
+    updateVente,
+    validateVente,
+    deleteVente
+};

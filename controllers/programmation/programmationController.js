@@ -9,6 +9,15 @@ import { generateProgrammationsPDF } from '../../services/pdfService.js';
 import { error } from 'console';
 import { create } from 'domain';
 
+const formaVente = (vente) => {
+    console.log('vente.preuve', vente.preuve)
+
+    return {
+        ...vente,
+        preuve: vente.preuve ? `${process.env.BASE_URL}/public/uploads/${vente.preuve}` : null
+    }
+}
+
 const UPLOADS_DIR = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../public/uploads'
@@ -167,6 +176,7 @@ const retrieveProgrammation = async (req, res) => {
                     createdBy: true,
                     validatedBy: true,
                     ventes: {
+                        orderBy:{id:'desc'},
                         where: { deletedAt: null },
                         include: {
                             programmation: true,
@@ -197,6 +207,7 @@ const retrieveProgrammation = async (req, res) => {
 
             res.status(200).json({
                 ...programmationFound,
+                ventes: programmationFound?.ventes.map(formaVente),
                 qteVendue,
                 resteAvendre: (programmationFound?.qteProgrammer - qteVendue)??0
             });
@@ -745,7 +756,7 @@ const livraisonProgrammation = async (req, res) => {
     console.log('Debut de livraison de la programmation:', req.body); // Log the incoming request body
 
     const user = req.user?.user
-    const { programId, qteLivre, dateLivraison, newBl, observation } = req.body
+    const { programId, qteLivre, dateLivraison, newBl, livraisonComment } = req.body
 
     try {
         const preuveCheck = validatePreuveFile(req.file, { required: false });
@@ -803,7 +814,7 @@ const livraisonProgrammation = async (req, res) => {
                 data: {
                     dateLivraison: new Date(dateLivraison),
                     newBl,
-                    observation,
+                    livraisonComment,
                     statutId,
                     qteLivre: program?.qteLivre + qteLivre,
                     preuve: req.file?.filename,

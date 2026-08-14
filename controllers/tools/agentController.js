@@ -34,13 +34,13 @@ const createAgent = async (req, res) => {
                 });
             }
 
-            if (result.data?.nom) {
+            if (result.data?.phone) {
                 const existing = await tx.agent.findFirst({
-                    where: { nom: result.data.nom },
+                    where: { phone: result.data.phone },
                 });
 
                 if (existing) {
-                    return res.status(409).json({ error: 'Cet agent existe déjà' });
+                    return res.status(409).json({ error: 'Cet agent existe déjà (phone)' });
                 }
             }
 

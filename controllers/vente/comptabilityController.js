@@ -36,31 +36,37 @@ const getComptabilities = async (req, res) => {
 
 // create a new comptability in the database and log the result
 const createComptability = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Début d\'envoie de vente à al comptabilité body:', req.body); // Log the incoming request body
 
     let user = req.user?.user
 
-    await prisma.$transaction(async (tx) => {
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // validation
             const resultComptability = comptabilityValidation.safeParse({ ...req.body });
-
             console.log("resultComptability :", resultComptability.data)
 
             if (!resultComptability.success) {
-                return res.status(400).json({
-                    errors: resultComptability.error.format()
-                });
+                throw { errorStatus: 400, payLoad: { errors: resultComptability.error.format() } }
             }
 
             // traitement de la vente
             const venteFound = await tx.vente.findFirst({
-                where: { id: resultComptability.data?.venteId, deletedAt: null }
+                where: {
+                    id: resultComptability.data?.venteId, deletedAt: null,
+                },
+                include: { venteComptability: true } // <-- manquant
             })
 
-            if (!venteFound) return res.status(400).json({ error: "Cette vente n'existe pas!" })
+            if (!venteFound) throw { errorStatus: 400, payLoad: { error: "Cette vente n'existe pas!" } }
+            if (!venteFound.validatedAt) throw { errorStatus: 400, payLoad: { error: "Cette vente n'est pas validée!" } }
 
-            if (!venteFound.validatedAt) return res.status(400).json({ error: "Cette vente n'est pas validée!" })
+            console.log("venteFound.venteComptability :", venteFound.venteComptability)
+
+            if (venteFound.venteComptability) {
+                console.log("venteFound.venteComptability :", venteFound.venteComptability)
+                throw { errorStatus: 400, payLoad: { error: `La vente ${venteFound.code} a déjà été comptabilisée` } }
+            }
 
             // insertion de la comptabilité
             const newComptability = await tx.venteComptability.create({
@@ -72,33 +78,32 @@ const createComptability = async (req, res) => {
                 },
             });
 
-            res.status(201).json(newComptability);
-        } catch (error) {
-            console.error('Failed to create comptability:', error);
-
-            res.status(500).json({ error: error.message || 'Failed to create comptability' });
-            throw error;
-        }
-    })
+            return newComptability;
+        })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create comptability:', error);
+        const status = error.errorStatus || 500;
+        const payload = error.payLoad || { error: "Erreur serveur" };
+        res.status(status).json(payload);
+    }
 };
 
 // update a comptability in the database and log the result
 const updateComptability = async (req, res) => {
-    console.log('Request body:', req.body); // Log the incoming request body
+    console.log('Début de traitement de la vente :', req.body); // Log the incoming request body
 
+    let user = req.user?.user
     let { id } = req.params
 
-    await prisma.$transaction(async (tx) => {
-
-        try {
+    try {
+        const result = await prisma.$transaction(async (tx) => {
             // found
             const comptabilityFound = await tx.venteComptability.findFirst({
                 where: { id: parseInt(id), deletedAt: null }
             })
 
-            if (!comptabilityFound) return res.status(400).json({ error: "Cette comptabilité n'existe pas!" })
-
-            console.log("comptabilityFound :", comptabilityFound)
+            if (!comptabilityFound) throw { errorStatus: 400, payLoad: { error: "Cette comptabilité n'existe pas!" } }
 
             // validation
             const resultComptability = comptabilityValidation.safeParse({
@@ -109,27 +114,38 @@ const updateComptability = async (req, res) => {
             console.log("resultComptability data :", resultComptability.data)
 
             if (!resultComptability.success) {
-                return res.status(400).json({
-                    errors: resultComptability.error.format()
-                });
+                throw { errorStatus: 400, payLoad: { errors: resultComptability.error.format() } }
             }
 
             // modification de la comptabilité de la base de données et log du résultat
+            let { tva, aib, ttcPrice, marge, usinePrixHT, margePrice, htPrice, bruitPrice, netHorsTaxe, tvaPrice, aibPrice, prixTTC } = resultComptability.data
+
             const updatedComptability = await tx.venteComptability.update({
                 where: { id: parseInt(id) },
                 data: {
-                    ...resultComptability.data
+                    tva, aib, ttcPrice, marge, usinePrixHT, margePrice, htPrice, htPrice, bruitPrice, netHorsTaxe, tvaPrice, aibPrice, prixTTC,
+                    treatedAt: new Date()
                 },
             });
 
-            res.status(201).json(updatedComptability);
-        } catch (error) {
-            console.error('Failed to update comptability:', error);
+            // actualisation de la vente
+            await tx.vente.update({
+                where: { deletedAt: null, id: comptabilityFound.venteId },
+                data: {
+                    treatedById: user?.id
+                }
+            })
 
-            res.status(500).json({ error: error.message || 'Failed to create comptability' });
-            throw error;
-        }
-    })
+            return updatedComptability;
+        })
+
+        console.log("Vente traitée avec succès")
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to update comptability:', error);
+
+        res.status(error.errorStatus).json(error.payLoad);
+    }
 };
 
 // delete a vente comptability from the database and log the result

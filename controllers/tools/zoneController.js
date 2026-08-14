@@ -7,6 +7,7 @@ import { zoneValidation } from '../../database/validations/tools/zoneValidation.
 const getZones = async (req, res) => {
     try {
         const zones = await prisma.zone.findMany({
+            where: { deletedAt: null },
             include: {
                 representant: true,
             },

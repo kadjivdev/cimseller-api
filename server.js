@@ -61,6 +61,8 @@ import deleteVenteRoutes from "./routes/api/demande/deleteVente.js"
 
 // env configuration
 dotenv.config();
+
+// express
 const app = express();
 const router = Router();
 
@@ -100,14 +102,13 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/ventes/types', venteTypeRoutes);
 app.use('/api/ventes/types-facture', typeFactureVenteRoutes);
 
-
 app.use('/api/marques', marqueRoutes);
 app.use('/api/chauffeurs', chauffeurRoutes);
 app.use('/api/avaliseurs', avaliseurRoutes);
 app.use('/api/camions', camionRoutes);
+app.use("/api/clients-status", clientStatusRoutes)
 app.use("/api/clients", clientRoutes)
 app.use("/api/client-filters", clientFilterRoutes)
-app.use("/api/clients/status", clientStatusRoutes)
 
 // user's routes
 app.use('/api/auth', authRoutes);

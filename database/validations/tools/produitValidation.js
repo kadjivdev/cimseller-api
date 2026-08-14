@@ -7,11 +7,12 @@ const produitValidation = z.object({
 
     typeId: z.preprocess(
         (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
-        z.number().int("Le type doit être un entier").optional()
+        z.number({ error: "Ce champ est requis" }).int("Le type doit être un entier")
     ),
 
     fournisseurPrice: z.coerce.number({ error: "Ce champ doit être un nombre" })
         .positive("Le prix doit être positif")
+        .nullable()
         .optional(),
 
     description: z

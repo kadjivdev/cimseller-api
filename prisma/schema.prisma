@@ -273,7 +273,7 @@ model TransfertProgrammation {
   id              Int             @id @default(autoincrement())
   programmationId Int?
   zoneSourceId    Int?
-  zoneDest     Int?
+  zoneDest        Int?
   userId          Int?
   date            DateTime?
   qteReste        Float?
@@ -374,7 +374,18 @@ model VenteComptability {
   aib                  Float?
   tva                  Float?
   ttcPrice             Float?
+  usinePrice           Float?
   marge                Float?
+
+  usinePrixHT          Float?
+  margePrice           Float?
+  htPrice              Float?
+  bruitPrice           Float?
+  netHorsTaxe          Float?
+  tvaPrice             Float?
+  aibPrice             Float?
+  prixTTC              Float?
+
   senderToComptability Int?
 
   treatedAt            DateTime?
@@ -612,6 +623,7 @@ model Client {
   phone                     String?                     @unique
   email                     String?                     @unique
   adresse                   String?
+  seuil                     Float?
 
   deletedAt                 DateTime?
   createdAt                 DateTime                    @default(now())

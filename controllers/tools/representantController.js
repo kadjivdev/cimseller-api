@@ -52,6 +52,7 @@ const createRepresentant = async (req, res) => {
                     where: { email: result.data.email, deletedAt: null },
                 });
 
+                console.log("existing :",existing)
                 if (existing) {
                     return res.status(409).json({ error: 'Ce representant existe déjà' });
                 }

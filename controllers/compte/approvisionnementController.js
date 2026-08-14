@@ -12,6 +12,30 @@ const formatData = (recu) => ({
 })
 
 const UPLOADS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'uploads')
+const ALLOWED_IMAGE_TYPES = [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+    'application/pdf',
+];
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+
+function validateImageFile(file, { required }) {
+    if (!file) {
+        return required
+            ? { ok: false, error: "L'image est requise" }
+            : { ok: true };
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        return { ok: false, error: 'Format image invalide' };
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+        return { ok: false, error: 'Image trop volumineuse' };
+    }
+    return { ok: true };
+}
 
 const deletePreuve = async (approvisionnement) => {
     console.log("Suppression de la preuve du recu :", approvisionnement)
@@ -69,7 +93,7 @@ const getApprovisionnements = async (req, res) => {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch approvisionnements' });
         throw error;
-    } 
+    }
 };
 
 // create a new approvisionnement in the database and log the result
@@ -80,6 +104,12 @@ const createApprovisionnement = async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
         try {
+            // validation de la preuve
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
+            }
+
             // validation
             const last = await tx.approvisionnement.findFirst({
                 orderBy: { id: 'desc' },
@@ -88,7 +118,7 @@ const createApprovisionnement = async (req, res) => {
             const resultApprovisionnement = approvisionnementValidation.safeParse({ ...req.body, code: `APR-00${last?.id ? (last?.id + 1) : 1}` });
 
             if (!resultApprovisionnement.success) {
-                return res.status(400).json({
+                return res.status(402).json({
                     errors: resultApprovisionnement.error.format()
                 });
             }
@@ -165,6 +195,12 @@ const updateApprovisionnement = async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
         try {
+            // validation de la preuve
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
+            }
+            
             // found
             const approvisionnementFound = await tx.approvisionnement.findFirst({
                 where: { id: parseInt(id), deletedAt: null }

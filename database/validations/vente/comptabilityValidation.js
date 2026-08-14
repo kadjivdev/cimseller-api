@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+// champs number
+const numberField = (label = "Ce champ") =>
+    z.coerce.number({
+        error: (issue) =>
+            issue.input === undefined || issue.input === ""
+                ? `${label} est réquis`
+                : `${label} doit être de format numérique`,
+    });
+
 // ventes validation schema
 const comptabilityValidation = z.object({
     venteId: z
@@ -8,32 +17,16 @@ const comptabilityValidation = z.object({
             invalid_type_error: "Ce champ doit être de format numérique"
         }).optional(),
 
-    aib: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un nombre"
-        })
+    aib: numberField()
         .optional(),
 
-    tva: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un nombre"
-        })
+    tva: numberField()
         .optional(),
 
-    ttcPrice: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un nombre"
-        })
+    ttcPrice: numberField()
         .optional(),
 
-    marge: z
-        .number({
-            required_error: "Ce champ est réquis",
-            invalid_type_error: "Ce champ doit être un nombre"
-        })
+    marge: numberField()
         .optional(),
 
     senderToComptability: z
@@ -61,6 +54,24 @@ const comptabilityValidation = z.object({
     })
         .optional(),
 
+
+    // les totaux
+    usinePrixHT: numberField()
+        .optional(),
+    margePrice: numberField()
+        .optional(),
+    htPrice: numberField()
+        .optional(),
+    bruitPrice: numberField()
+        .optional(),
+    netHorsTaxe: numberField()
+        .optional(),
+    tvaPrice: numberField()
+        .optional(),
+    aibPrice: numberField()
+        .optional(),
+    prixTTC: numberField()
+        .optional(),
 });
 
 export { comptabilityValidation };

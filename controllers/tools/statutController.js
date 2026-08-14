@@ -1,6 +1,7 @@
 import prisma from '../../config/prisma.js';
 
 const getClientStatus = async (req, res) => {
+    console.log("Debut de recuperation des statut client")
     try {
         const status = await prisma.statutClient.findMany({
             where: { deletedAt: null },

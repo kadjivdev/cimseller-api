@@ -13,6 +13,30 @@ const formatData = (recu) => ({
 })
 
 const UPLOADS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'uploads')
+const ALLOWED_IMAGE_TYPES = [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+    'application/pdf',
+];
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+
+function validateImageFile(file, { required }) {
+    if (!file) {
+        return required
+            ? { ok: false, error: "L'image est requise" }
+            : { ok: true };
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        return { ok: false, error: 'Format image invalide' };
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+        return { ok: false, error: 'Image trop volumineuse' };
+    }
+    return { ok: true };
+}
 
 const deletePreuve = async (reglement) => {
     console.log("Suppression de la preuve du recu :", reglement)
@@ -100,6 +124,12 @@ const createReglement = async (req, res) => {
 
     try {
         const result = await prisma.$transaction(async (tx) => {
+            // validation de la preuve
+            const imageCheck = validateImageFile(req.file, { required: false });
+            if (!imageCheck.ok) {
+                return res.status(400).json({ error: imageCheck.error });
+            }
+
             // validation
             const last = await tx.reglement.findFirst({
                 orderBy: { id: 'desc' },
@@ -110,7 +140,7 @@ const createReglement = async (req, res) => {
             console.log("resultReglement :", resultReglement.data)
 
             if (!resultReglement.success) {
-                throw { errorStatus: 400, payLoad: { errors: resultReglement.error.format() } }
+                throw { errorStatus: 402, payLoad: { errors: resultReglement.error.format() } }
             }
 
             // traitement du vente
@@ -238,7 +268,7 @@ const updateReglement = async (req, res) => {
             })
 
             if (!resultReglement.success) {
-                return res.status(400).json({
+                return res.status(402).json({
                     errors: resultReglement.error.format()
                 });
             }
@@ -325,6 +355,7 @@ const updateReglement = async (req, res) => {
             * on verifie si le client avait une dette ancienne
             * si oui on verifie si le user a choisi de contourner la dette ancienne
             *  */
+
             let clientOldDette = client?.oldDette?.dette - client?.oldDette?.solved
             if (clientOldDette > 0 && !req.body?.deblocDette) {
                 return res.status(400).json({ error: `Le Client ${client.raison_sociale} dispose d'une dette ancienne de ${clientOldDette.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} Fcfa. Veuillez vous rendre sur son compte pour régler cette ancienne dette d'abord.` })

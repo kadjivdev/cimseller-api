@@ -52,12 +52,14 @@ const toImageUrl = (filename) =>
 
 const formatClient = (client) => {
     let approvisionnementAmount = client.approvisionnements?.reduce((a, appro) => (a + appro.montant), 0) ?? 0;
+    let venteAmount = client.ventes?.reduce((a, vente) => (a + vente.montant), 0) ?? 0;
     let reglementAmount = client.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
-    let solde = approvisionnementAmount - reglementAmount
+    let solde = approvisionnementAmount - venteAmount
 
     return {
         ...client,
         approvisionnementAmount,
+        venteAmount,
         reglementAmount,
         solde,
         profil: toImageUrl(client.profil),
@@ -118,7 +120,22 @@ const getClients = async (req, res) => {
                         validatedAt: true,
                     }
                 },
-            }
+                ventes: {
+                    where: { validatedAt: { not: null } },
+                    include: {
+                        programmation: true,
+                        commandeClient:true,
+                        client:true,
+                        createdBy:true,
+                        validatedBy:true,
+                        produit:true,
+                        statut:true,
+                        type:true,
+                        typeFactureVente:true,
+                    }
+                },
+                oldDette: true
+            },
         });
 
         res.json(clients.map(formatClient));
@@ -180,6 +197,20 @@ const getActifClients = async (req, res) => {
                         typeDetailRecu: true,
                         createdAt: true,
                         validatedAt: true,
+                    }
+                },
+                ventes: {
+                    where: { validatedAt: { not: null } },
+                    include: {
+                        programmation: true,
+                        commandeClient:true,
+                        client:true,
+                        createdBy:true,
+                        validatedBy:true,
+                        produit:true,
+                        statut:true,
+                        type:true,
+                        typeFactureVente:true,
                     }
                 },
             }
@@ -322,7 +353,6 @@ const getBefClients = async (req, res) => {
     }
 };
 
-
 // Get all clients
 const retrieveClient = async (req, res) => {
     console.log("Retrieving a client")
@@ -339,6 +369,7 @@ const retrieveClient = async (req, res) => {
                 reglements: {
                     where: { NOT: { validatedAt: null } },
                 },
+                oldDette: true,
             }
         })
 
@@ -365,7 +396,6 @@ const createClient = async (req, res) => {
 
             const result = clientValidation.safeParse({
                 ...req.body,
-                profil: req.file?.filename,
                 phone: req.body?.phone != null ? String(req.body.phone) : undefined,
             });
 
@@ -398,7 +428,10 @@ const createClient = async (req, res) => {
             }
 
             const newClient = await prisma.client.create({
-                data: { ...result.data },
+                data: {
+                    ...result.data,
+                    profil: req.file?.filename,
+                },
             });
 
 
@@ -474,6 +507,7 @@ const importClients = async (req, res) => {
 
 
 const updateClient = async (req, res) => {
+    console.log("Début de modification d'un client:", req.body)
     let { id } = req.params;
 
     try {
@@ -522,9 +556,20 @@ const updateClient = async (req, res) => {
                 }
             }
 
+            const solvedValue = req.body?.solved !== undefined && req.body?.solved !== null && req.body?.solved !== ''
+                ? Number(req.body.solved)
+                : undefined
+
             const updatedClient = await tx.client.update({
                 where: { id: parseInt(id) },
-                data: { ...result.data },
+                data: {
+                    ...result.data,
+                    oldDette: {
+                        update: {
+                            solved: solvedValue
+                        }
+                    }
+                },
             });
 
             res.json(updatedClient);
@@ -565,5 +610,5 @@ const deleteClient = async (req, res) => {
 };
 
 export {
-    getClients, createClient,retrieveClient, getActifClients, getInActifClients, getBefClients, updateClient, deleteClient, importClients
+    getClients, createClient, retrieveClient, getActifClients, getInActifClients, getBefClients, updateClient, deleteClient, importClients
 };
