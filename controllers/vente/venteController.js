@@ -112,7 +112,7 @@ const getVentes = async (req, res) => {
             }
         });
 
-        res.json(ventes.map(formatData));
+        res.json(ventes.map(formatVente));
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch ventes' });
@@ -132,6 +132,39 @@ const getValidatedVentes = async (req, res) => {
                 reglements: {
                     where: { deletedAt: null }
                 }
+            }
+        });
+
+        res.json(ventes.map(formatVente));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated ventes' });
+        throw error;
+    }
+};
+
+// Get all no validated ventes from the database and log them
+const getNotValidatedVentes = async (req, res) => {
+    console.log("Getting validated ventes")
+
+    try {
+        const ventes = await prisma.vente.findMany({
+            where: { validatedAt: null, deletedAt: null },
+            orderBy: { id: 'desc' },
+            include: {
+                programmation: true,
+                commandeClient: {
+                    include: {
+                        client: true
+                    }
+                },
+                client: true,
+                produit: true,
+                type: true,
+                statut: true,
+                typeFactureVente: true,
+                createdBy: true,
+                validatedBy: true,
             }
         });
 
@@ -279,6 +312,50 @@ const getNoTraitedVentes = async (req, res) => {
                 deletedAt: null,
                 venteComptability: {
                     is: { treatedAt: null }
+                }
+            },
+            orderBy: { id: 'desc' },
+            include: {
+                venteComptability: {
+                    include: {
+                        sender: {
+                            select: { fullname: true }
+                        }
+                    }
+                },
+                programmation: true,
+                commandeClient: {
+                    include: {
+                        client: true
+                    }
+                },
+                client: true,
+                produit: true,
+                type: true,
+                statut: true,
+                typeFactureVente: true,
+                createdBy: true,
+                validatedBy: true,
+            }
+        });
+
+        res.json(ventes.map(formatVente));
+    } catch (error) {
+        console.error('Prisma query failed:', error);
+        res.status(500).json({ error: 'Failed to fetch validated ventes' });
+    }
+};
+
+// Get all traited ventes from the database and log them
+const getTraitedVentes = async (req, res) => {
+    console.log("Getting traited ventes")
+
+    try {
+        const ventes = await prisma.vente.findMany({
+            where: {
+                deletedAt: null,
+                venteComptability: {
+                    is: { treatedAt: { not: null } }
                 }
             },
             orderBy: { id: 'desc' },
@@ -698,10 +775,12 @@ const deleteVente = async (req, res) => {
 export {
     getVentes,
     getNoTraitedVentes,
+    getTraitedVentes,
     getComptabilizedVentes,
     getNoComptabilizedVentes,
     getDallyVentes,
     getValidatedVentes,
+    getNotValidatedVentes,
     retrieveVente,
     createVente,
     updateVente,

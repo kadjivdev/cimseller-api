@@ -76,6 +76,7 @@ const getProgrammations = async (req, res) => {
                     select: {
                         id: true,
                         code: true,
+                        fournisseur: true,
                         commandeDetails: {
                             select: {
                                 id: true,
@@ -176,7 +177,7 @@ const retrieveProgrammation = async (req, res) => {
                     createdBy: true,
                     validatedBy: true,
                     ventes: {
-                        orderBy:{id:'desc'},
+                        orderBy: { id: 'desc' },
                         where: { deletedAt: null },
                         include: {
                             programmation: true,
@@ -203,13 +204,13 @@ const retrieveProgrammation = async (req, res) => {
 
             console.log("qteVendue: ", qteVendue)
             console.log("programmationFound?.qteProgrammer :", programmationFound?.qteProgrammer)
-            console.log("programmationFound?.qteProgrammer ?? 0 - qteVendue ?? 0 : ", programmationFound?.qteProgrammer - qteVendue )
+            console.log("programmationFound?.qteProgrammer ?? 0 - qteVendue ?? 0 : ", programmationFound?.qteProgrammer - qteVendue)
 
             res.status(200).json({
                 ...programmationFound,
                 ventes: programmationFound?.ventes.map(formaVente),
                 qteVendue,
-                resteAvendre: (programmationFound?.qteProgrammer - qteVendue)??0
+                resteAvendre: (programmationFound?.qteProgrammer - qteVendue) ?? 0
             });
         } catch (error) {
             console.error('Failed to create programmation:', error);
@@ -305,7 +306,7 @@ const createProgrammation = async (req, res) => {
             */
 
             //celle déjà programmée
-            const qteTotalDejaProgramme = (commande.programmations ?? [])
+            const qteTotalDejaProgramme = (commande.programmations?.filter((pr) => pr.statutId != 2) ?? [])//on considère pas les annulées
                 .reduce((total, c) => total + c.qteProgrammer, 0);
 
             //celle programmée & celle entrante
@@ -557,6 +558,51 @@ const validateProgrammation = async (req, res) => {
     }
 };
 
+// annuler une programmation
+const annulerProgrammation = async (req, res) => {
+    console.log("Début d'annulation du programme :", req.body)
+    try {
+        const { id } = req.body;
+        const result = await prisma.$transaction(async (tx) => {
+
+            let programmationFound = await tx.programmation.findUnique({
+                where: { id: parseInt(id), deletedAt: null },
+                include: {
+                    commande: {
+                        include: {
+                            programmations: true,
+                            commandeDetails: true
+                        }
+                    },
+                },
+            });
+
+            if (!programmationFound) {
+                throw { errorStatus: 404, payLoad: { error: 'Programmation non trouvée' } }
+            }
+
+            if (programmationFound.statutId == 2) {//annulée
+                throw { errorStatus: 400, payLoad: { error: "Cette programmation est déjà annulée" } }
+            }
+
+            // validation de la programmation de la base de données et log du résultat
+            const updatedProgrammation = await tx.programmation.update({
+                where: { deletedAt: null, id: parseInt(id) },
+                data: {
+                    statutId: 2,//annulée
+                }
+            });
+
+            return updatedProgrammation
+        })
+        console.log("Programmation annulée avec succès!")
+        res.status(200).json({ message: 'Programmation validée avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete programmation:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
+};
+
 // delete a programmation
 const deleteProgrammation = async (req, res) => {
 
@@ -590,13 +636,17 @@ const deleteProgrammation = async (req, res) => {
 
 // imprimer a list of programmations
 const printProgrammations = async (req, res) => {
-    console.log('Début d\'impression des programmation:', req.body); // Log the incoming request body
+    console.log('Début d\'impression des programmation:', req.body);
 
     let user = req.user?.user
     let { fournisseurId, start, end } = req.body
 
     try {
         const result = await prisma.$transaction(async (tx) => {
+
+            if (!fournisseurId || !start || !end) {
+                throw { errorStatus: 404, payLoad: { error: "Le fournisseur et la période sont réquis!" } }
+            }
 
             const fournisseur = await tx.fournisseur.findFirst({
                 where: { deletedAt: null, id: parseInt(fournisseurId) }
@@ -606,91 +656,104 @@ const printProgrammations = async (req, res) => {
                 throw { errorStatus: 404, payLoad: { error: "Ce fournisseur n'existe pas!" } }
             }
 
-            // getting programmations
-            const programmations = await tx.programmation.findMany({
-                include: {
-                    commande: true
-                },
-                where: {
-                    commande: {
-                        fournisseurId: parseInt(fournisseurId)
-                    },
-                    createdAt: {
-                        gte: new Date(start),
-                        lte: new Date(end)
-                    }
-                },
-            })
-
-            // update programmations
+            // persistance de l'impression
             await tx.programmation.updateMany({
                 where: {
+                    imprimer: false,      // jamais imprimée dans la vague courante
+                    oldImprimer: false,//les anciennes ne sont plus considéerées
                     commande: { fournisseurId: parseInt(fournisseurId) },
-                    createdAt: { gte: new Date(start), lte: new Date(end) }
+                    createdAt: { gte: new Date(start), lte: new Date(end) },
+                    OR: [//on considère pas les annulées
+                        { statutId: null },
+                        { NOT: { statutId: 2 } }
+                    ]
                 },
-                data: { imprimer: true }
+                data: {
+                    imprimer: true,
+                    validatedAt: new Date(),
+                    validatedById: user?.id
+                }
             })
 
-            console.log("programmations :", programmations)
-            console.log("Programmation insérée avec succès!",)
-            return programmations
+            return { fournisseurId, start, end }
         })
+
         res.status(201).json(result);
     } catch (error) {
-        console.error('Failed to create programmation:', error);
-        res.status(error.errorStatus).json(error.payLoad);
+        console.error('Failed to print programmations:', error);
+        const status = error.errorStatus || 500
+        const payload = error.payLoad || { error: 'Erreur interne du serveur' }
+        res.status(status).json(payload);
     }
 };
 
 // Get pdf a list of programmations
 const getPdfProgrammations = async (req, res) => {
-    let user = req.user?.user;
-    const { fournisseurId, start, end } = req.params; // params, pas query
+    console.log("Début de recuperation de PDF :", req)
+    const { fournisseurId, start, end } = req.params
 
     try {
-        const fournisseur = await prisma.fournisseur.findFirst({
-            where: { deletedAt: null, id: parseInt(fournisseurId) }
-        });
+        const result = await prisma.$transaction(async (tx) => {
+            const fournisseur = await tx.fournisseur.findFirst({
+                where: { deletedAt: null, id: parseInt(fournisseurId) }
+            })
 
-        if (!fournisseur) {
-            throw { errorStatus: 404, payLoad: { error: "Ce fournisseur n'existe pas!" } };
-        }
+            if (!fournisseur) {
+                return res.status(404).json({ error: "Ce fournisseur n'existe pas!" })
+            }
 
-        const programmations = await prisma.programmation.findMany({
-            include: {
-                zone: true,
-                statut: true,
-                camion: true,
-                chauffeur: true,
-                avaliseur: true,
-                commande: {
-                    include: {
-                        commandeDetails: {
-                            include: { product: true }
-                        }
+            const programmations = await tx.programmation.findMany({
+                where: {
+                    oldImprimer: false,//les anciennes programmes imprimées ne sont plus considéerées
+                    commande: { fournisseurId: parseInt(fournisseurId) },
+                    createdAt: { gte: new Date(start), lte: new Date(end) },
+                    OR: [//on considère pas les annulées
+                        { statutId: null },
+                        { NOT: { statutId: 2 } }
+                    ]
+                },
+                include: {
+                    zone: true,
+                    statut: true,
+                    camion: true,
+                    chauffeur: true,
+                    avaliseur: true,
+                    commande: {
+                        include: { commandeDetails: { include: { product: true } } }
                     }
-                }
-            },
-            where: {
-                imprimer: true,
-                commande: { fournisseurId: parseInt(fournisseurId) },
-                createdAt: {
-                    gte: new Date(start),
-                    lte: new Date(end)
-                }
-            },
-        });
+                },
+            })
 
-        const pdfBuffer = await generateProgrammationsPDF(fournisseur, programmations, start, end);
+            console.log("Les programmes en cours d'impression :", programmations)
+
+            // classons ces programmations dans oldImprimer
+            await tx.programmation.updateMany({
+                where: {
+                    commande: { fournisseurId: parseInt(fournisseurId) },
+                    createdAt: { gte: new Date(start), lte: new Date(end) },
+                    OR: [//on considère pas les annulées
+                        { statutId: null },
+                        { NOT: { statutId: 2 } }
+                    ]
+                },
+                data: {
+                    oldImprimer: true,
+                }
+            })
+
+            const pdfBuffer = await generateProgrammationsPDF(fournisseur, programmations, start, end);
+            return pdfBuffer
+        })
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'inline; filename=programmations.pdf');
-        res.send(pdfBuffer);
+        res.send(result);
     } catch (error) {
-        console.error('Failed to fetch programmations:', error);
-        res.status(error.errorStatus || 500).json(error.payLoad || { error: "Erreur serveur" });
+        console.error('Failed to generate PDF:', error);
+        res.status(500).json({ error: 'Erreur lors de la génération du PDF' });
     }
 };
+
 
 // actualize a programmation in the database and log the result
 const actualiseProgrammation = async (req, res) => {
@@ -753,10 +816,9 @@ const actualiseProgrammation = async (req, res) => {
 
 // livraison de programmation in the database and log the result
 const livraisonProgrammation = async (req, res) => {
-    console.log('Debut de livraison de la programmation:', req.body); // Log the incoming request body
-
     const user = req.user?.user
-    const { programId, qteLivre, dateLivraison, newBl, livraisonComment } = req.body
+    const { programId, dateLivraison, newBl, livraisonComment } = req.body
+    const qteLivre = Number(req.body.qteLivre) // ✅ conversion unique en haut
 
     try {
         const preuveCheck = validatePreuveFile(req.file, { required: false });
@@ -764,51 +826,37 @@ const livraisonProgrammation = async (req, res) => {
             return res.status(400).json({ error: preuveCheck.error });
         }
 
-        // 
         const result = await prisma.$transaction(async (tx) => {
-            // traitement de la programmation
             let program = await tx.programmation.findFirst({
-                where: {
-                    id: parseInt(programId),
-                    deletedAt: null
-                },
+                where: { id: parseInt(programId), deletedAt: null },
             });
 
             if (!program) {
                 throw { errorStatus: 404, payLoad: { error: 'Cette programmation n\'existe pas' } }
             }
 
-            // verification des quantités
             if (program.qteLivre > program.qteProgrammer) {
                 throw { errorStatus: 400, payLoad: { error: "La quantité livrée dépasse la quantité programmée" } }
             }
 
-            // traitement de la ....
             if (newBl) {
-                // New Bl
-                let nBl = await tx.programmation.findFirst({
-                    where: { newBl: newBl }
-                });
-
+                let nBl = await tx.programmation.findFirst({ where: { newBl: newBl, id: { not: parseInt(programId) } } });
                 if (nBl) {
                     throw { errorStatus: 409, payLoad: { error: 'Ce newBl existe déjà' } }
                 }
             }
 
-            // comparaison des bL de la programmation
             if (newBl != program.bl) {
                 throw { errorStatus: 400, payLoad: { error: 'Ce newBl ne correspond pas au BL de la programmation.' } }
             }
 
-            // traitement de la date de sortie
             if (dateLivraison && new Date(dateLivraison) > new Date()) {
                 throw { errorStatus: 400, payLoad: { error: 'La date de livraison doit être égale ou antérieure à aujourd\'hui' } }
             }
 
-            const statutId = ((program?.qteLivre + qteLivre) < program?.qteProgrammer) ?
-                3 : 4
+            const totalQteLivre = Number(program?.qteLivre ?? 0) + qteLivre
+            const statutId = totalQteLivre < program?.qteProgrammer ? 3 : 4
 
-            // update de la programmation
             const newProgrammation = await tx.programmation.update({
                 where: { id: parseInt(program?.id), deletedAt: null },
                 data: {
@@ -816,23 +864,23 @@ const livraisonProgrammation = async (req, res) => {
                     newBl,
                     livraisonComment,
                     statutId,
-                    qteLivre: program?.qteLivre + qteLivre,
+                    qteLivre: totalQteLivre,
                     preuve: req.file?.filename,
                 },
             });
 
-            // 
             if (newProgrammation.qteLivre > newProgrammation.qteProgrammer) {
                 throw { errorStatus: 400, payLoad: { error: "La quantité livrée dépasse la quantité programmée" } }
             }
 
-            console.log("Livrée avec succès!")
             return newProgrammation
         })
         res.status(201).json(result);
     } catch (error) {
         console.error('Failed to actualise programmation:', error);
-        res.status(error.errorStatus).json(error.payLoad);
+        const status = error.errorStatus || 500
+        const payload = error.payLoad || { error: 'Erreur interne du serveur' }
+        res.status(status).json(payload);
     }
 };
 
@@ -905,6 +953,7 @@ export {
     createProgrammation,
     updateProgrammation,
     validateProgrammation,
+    annulerProgrammation,
     deleteProgrammation,
     printProgrammations,
     actualiseProgrammation,

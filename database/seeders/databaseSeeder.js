@@ -6,12 +6,16 @@ import userSeeders from "./userSeeder.js";
 
 const seedDatabase = async () => {
     try {
-        await Promise.all([
-            seedRoles(),
-            seedPermissions(),
-            seedTools(),
-            userSeeders()
-        ]);
+        await userSeeders(),
+        await seedPermissions(),
+        await seedRoles(),
+        await seedTools(),
+        // await Promise.all([
+        //     userSeeders(),
+        //     seedPermissions(),
+        //     seedRoles(),
+        //     seedTools(),
+        // ]);
 
         console.log('Database seeding completed successfully.');
     } catch (error) {

@@ -4,8 +4,18 @@ import { getCommandeRecuVersements, retrieveCommandeRecuVersement, createCommand
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
+// const handlePreuveUpload = (req, res, next) => {
+//     upload.single('preuve')(req, res, (err) => {
+//         if (!err) return next();
+//         if (err.code === 'LIMIT_FILE_SIZE') {
+//             return res.status(400).json({ error: 'Preuve trop volumineuse' });
+//         }
+//         return res.status(400).json({ error: err.message || 'Erreur lors du téléversement' });
+//     });
+// };
+
 const handlePreuveUpload = (req, res, next) => {
-    upload.single('preuve')(req, res, (err) => {
+    upload.any()(req, res, (err) => {  // 👈 accepte plusieurs fichiers, noms de champs variables
         if (!err) return next();
         if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({ error: 'Preuve trop volumineuse' });
@@ -13,6 +23,7 @@ const handlePreuveUpload = (req, res, next) => {
         return res.status(400).json({ error: err.message || 'Erreur lors du téléversement' });
     });
 };
+
 const router = Router();
 
 router.route("/")

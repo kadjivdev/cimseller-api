@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 
 import { Router } from 'express';
 import userRoutes from './routes/api/users.js';
+import dashboardRoutes from './routes/api/dashboard.js';
 import authRoutes from './routes/api/auth.js';
 import roleRoutes from './routes/api/roles.js';
 import permissionRoutes from "./routes/api/permissions.js";
@@ -113,6 +114,7 @@ app.use("/api/client-filters", clientFilterRoutes)
 // user's routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // authorization'routes
 app.use('/api/roles', roleRoutes);

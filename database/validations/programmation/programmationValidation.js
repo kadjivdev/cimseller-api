@@ -1,40 +1,36 @@
 import { z } from 'zod';
 
+const intField = (label = "Ce champ") =>
+    z.coerce.number({
+        error: (issue) =>
+            issue.input === undefined || issue.input === ""
+                ? `${label} est requis`
+                : `${label} doit être un entier`,
+    }).int(`${label} doit être un entier`);
+
+const numberField = (label = "Ce champ") =>
+    z.coerce.number({
+        error: (issue) =>
+            issue.input === undefined || issue.input === ""
+                ? `${label} est requis`
+                : `${label} doit être de format numérique`,
+    });
+
 // programmations validation schema
 const programmationValidation = z.object({
     code: z
         .string({ error: "Ce champ doit être une chaîne de caractères" })
         .optional(),
 
-    commandeId: z.int({
-        error: (issue) => issue.input === undefined
-            ? "Ce champ est requis"
-            : "Ce champ doit être un entier"
-    }),
+    commandeId: intField(),
 
-    zoneId: z.int({
-        error: (issue) => issue.input === undefined
-            ? "Ce champ est requis"
-            : "Ce champ doit être un entier"
-    }),
+    zoneId: intField(),
 
-    camionId: z.int({
-        error: (issue) => issue.input === undefined
-            ? "Ce champ est requis"
-            : "Ce champ doit être un entier"
-    }).optional(),
+    camionId: intField().optional(),
 
-    chauffeurId: z.int({
-        error: (issue) => issue.input === undefined
-            ? "Ce champ est requis"
-            : "Ce champ doit être un entier"
-    }),
+    chauffeurId: intField(),
 
-    avaliseurId: z.int({
-        error: (issue) => issue.input === undefined
-            ? "Ce champ est requis"
-            : "Ce champ doit être un entier"
-    }).optional(),
+    avaliseurId: intField().optional(),
 
     dateProgrammation: z.coerce.date({
         error: (issue) => issue.input === undefined
@@ -42,16 +38,9 @@ const programmationValidation = z.object({
             : "Ce champ doit être une date"
     }),
 
-    qteProgrammer: z.number({
-        error: (issue) => issue.input === undefined
-            ? "Ce champ est requis"
-            : "Ce champ doit être de format numérique"
-    }),
+    qteProgrammer: numberField("La quantité programmée"),
 
-    statutId: z
-        .number({ error: "Ce champ doit être un entier" })
-        .int("Ce champ doit être un entier")
-        .nullish(),
+    statutId: intField().nullish(),
 
     observation: z
         .string({ error: "Ce champ doit être de format string" })

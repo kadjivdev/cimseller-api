@@ -46,11 +46,35 @@ const roles = [
 
 const seedRoles = async () => {
     // Supprimer les rôles existants pour éviter les doublons
-    await prisma.role.deleteMany();
+    // TRUNCATE avec RESTART IDENTITY : vide la table ET remet la séquence auto-increment à 1
+    await prisma.$transaction([
+        prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0;`),
+        prisma.$executeRawUnsafe(`TRUNCATE TABLE roles;`),
+        prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1;`),
+    ]);
 
     // insertions
     await prisma.role.createMany({
         data: roles
+    });
+
+    const permissions = await prisma.permission.findMany({
+        where: { deletedAt: null }
+    })
+
+    // attachement de toutes les permissions au role 1 Super admin
+    await prisma.role.update({
+        where: { id: 1 },//role 1
+        data: {
+            permissions: {
+                deleteMany: {},//remove all permissions
+                create: permissions.map((per) => ({
+                    permission: {
+                        connect: { id: per.id }
+                    }
+                }))
+            },
+        },
     });
 };
 

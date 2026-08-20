@@ -4,6 +4,15 @@ import bcrypt from 'bcrypt';
 import { commandeValidation, commandeDetailValidation } from '../../database/validations/commande/commandeValidation.js';
 import { error } from 'console';
 
+const formaProgrammation = (programmation) => {
+    console.log('programmation.preuve', programmation.preuve)
+
+    return {
+        ...programmation,
+        preuve: programmation.preuve ? `${process.env.BASE_URL}/public/uploads/${programmation.preuve}` : null
+    }
+}
+
 const commandFormat = (command) => {
     let qteCommander = command.commandeDetails?.reduce((qte, dt) => (qte + dt.qteCommande), 0)
     let qteProgrammer = command.programmations?.reduce((qte, dt) => (qte + dt.qteProgrammer), 0)
@@ -123,7 +132,10 @@ const getAllValidatedCommandes = async (req, res) => {
                     }
                 },
                 programmations: {
-                    where: { NOT: { validatedBy: null } },
+                    where: {
+                        validatedAt: { not: null },//les programmes validées
+                        statutId: { not: 2 }//non annulée
+                    },
                     include: { ventes: true }
                 }
             }
@@ -178,7 +190,7 @@ const retrieveCommande = async (req, res) => {
                         avaliseur: true,
                         transferts: {
                             include: {
-                                zoneSource:true,
+                                zoneSource: true,
                                 zoneDestination: true,
                             }
                         },
@@ -199,7 +211,10 @@ const retrieveCommande = async (req, res) => {
         }
 
         let qteCommander = commandeFound.commandeDetails?.reduce((qte, dt) => (qte + dt.qteCommande), 0)
-        let qteProgrammer = commandeFound.programmations?.reduce((qte, dt) => (qte + dt.qteProgrammer), 0)
+        let qteProgrammer = commandeFound.programmations
+            ?.filter((pr) => (pr.statutId != 2))//non annulée
+            .reduce((qte, dt) => (qte + dt.qteProgrammer), 0)
+
         // total des ventes effectuées
         let qteVendue = commandeFound.programmations?.reduce(
             (total, pr) => total + (pr.ventes?.reduce((qte, vente) => qte + vente.qteTotal, 0) ?? 0),
@@ -214,19 +229,31 @@ const retrieveCommande = async (req, res) => {
             stock: qteCommander - qteProgrammer,
 
             // programmations
-            programmations: commandeFound.programmations.map((pr) => {
-                // total des ventes effectuées
-                let qteVendue = pr.ventes?.reduce((qte, vente) => (qte + vente.qteTotal), 0) ?? 0;
+            programmations: commandeFound.programmations
+                .map((pr) => {
+                    // total des ventes effectuées
+                    let qteVendue = pr.ventes?.reduce((qte, vente) => (qte + vente.qteTotal), 0) ?? 0;
 
-                return {
-                    ...pr,
-                    qteVendue,
-                    stock: pr.qteProgrammer - pr.qteLivre,
-                }
+                    return {
+                        ...pr,
+                        qteVendue,
+                        stock: pr.qteProgrammer - pr.qteLivre,
+                    }
+                }),
 
-            })
+            commandeRecus: commandeFound.commandeRecus
+                .map((recu) => ({
+                    ...recu,
+                    preuve: recu.preuve ? `${process.env.BASE_URL}/public/uploads/${recu.preuve}` : null
+                })),
+
+            commandeAccuses: commandeFound.commandeAccuses
+                .map((recu) => ({
+                    ...recu,
+                    preuve: recu.preuve ? `${process.env.BASE_URL}/public/uploads/${recu.preuve}` : null
+                }))
         }
-        return res.status(200).json(data);
+        return res.status(200).json({ ...data, programmations: data.programmations.map(formaProgrammation) });
     } catch (error) {
         console.error('Failed to retrieve commande:', error);
         return res.status(500).json({ error: error.message || 'Failed to retrieve commande' });

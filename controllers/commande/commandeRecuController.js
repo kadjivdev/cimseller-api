@@ -11,6 +11,11 @@ const formatData = (recu) => ({
     preuve: recu.preuve ? `${process.env.BASE_URL}/public/uploads/${recu.preuve}` : null
 })
 
+const formatVersement = (versement) => ({
+    ...versement,
+    preuve: versement.preuve ? `${process.env.BASE_URL}/public/uploads/${versement.preuve}` : null
+})
+
 const UPLOADS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'uploads')
 
 const deletePreuve = async (recu) => {
@@ -69,8 +74,11 @@ const retrieveCommandeRecu = async (req, res) => {
                 }
             })
             if (!commandeRecuFound) return res.status(400).json({ error: " Cette commande reçu n'existe pas!" })
-
-            res.status(201).json(commandeRecuFound);
+            // formatVersement
+            res.status(201).json({
+                ...commandeRecuFound,
+                versements: commandeRecuFound.versements?.map(formatVersement)
+            });
         } catch (error) {
             console.error('Failed to retrieve commande reçu:', error);
 
@@ -86,10 +94,17 @@ const createCommandeRecu = async (req, res) => {
     let user = req.user?.user;
 
     try {
+        // ✅ FormData transforme tout en string, donc recus arrive en JSON stringifié
+        const recus = typeof req.body?.recus === 'string'
+            ? JSON.parse(req.body.recus)
+            : (req.body?.recus ?? [])
+
+        const commandeId = parseInt(req.body?.commandeId) // ✅ conversion explicite
+
         const result = await prisma.$transaction(async (tx) => {
 
             const commandeFound = await tx.commande.findFirst({
-                where: { id: req.body?.commandeId, deletedAt: null },
+                where: { id: commandeId, deletedAt: null },
                 include: {
                     commandeDetails: true,
                     commandeRecus: true,
@@ -100,17 +115,18 @@ const createCommandeRecu = async (req, res) => {
                 throw { statusCode: 404, payload: { error: "Cette commande n'existe pas" } };
             }
 
+            // Suppression des reçus précedents
             await tx.commandeRecu.deleteMany({
                 where: { commandeId: commandeFound.id }
             });
 
             const qteTotalCommander = commandeFound.commandeDetails?.reduce((qte, cd) => qte + cd.qteCommande, 0) ?? 0;
 
-            // cumul qui progresse au fil de la boucle (les anciens reçus ont été supprimés, donc on repart de 0)
             let qteCumulee = 0;
+            let montantCumule = 0;
             const nouveauxRecus = [];
 
-            for (const [index, rc] of (req.body?.recus ?? []).entries()) {
+            for (const [index, rc] of recus.entries()) {
                 console.log("L'index :", index);
                 console.log("Le reçu :", rc);
 
@@ -143,6 +159,7 @@ const createCommandeRecu = async (req, res) => {
                 }
 
                 qteCumulee += resultCommandeRecu.data.tonnage;
+                montantCumule += resultCommandeRecu.data.montant;
 
                 if (qteCumulee > qteTotalCommander) {
                     throw {
@@ -151,11 +168,21 @@ const createCommandeRecu = async (req, res) => {
                     };
                 }
 
+                if (montantCumule > commandeFound.montant) {
+                    throw {
+                        statusCode: 400,
+                        payload: { error: `Le montant total reçu (${montantCumule}) serait supérieure au montant total du bon (${commandeFound.montant})` }
+                    };
+                }
+
+                // ✅ retrouve le fichier correspondant à CE recu précis
+                const fichierRecu = req.files?.find((f) => f.fieldname === `preuve_${index}`)
+
                 const newCommandeRecu = await tx.commandeRecu.create({
                     data: {
                         ...resultCommandeRecu.data,
                         commandeId: commandeFound.id,
-                        preuve: req.file?.filename,
+                        preuve: fichierRecu?.filename,
                         createdById: user?.id
                     },
                 });

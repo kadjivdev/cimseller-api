@@ -52,13 +52,22 @@ const getCommandeRecuVersements = async (req, res) => {
 // create a new commandeRecuVersment in the database and log the result
 const createCommandeRecuVersement = async (req, res) => {
     console.log('Début d\'insersion des versements de recu', req.body);
+    console.log("Les files :",req.files)
+    
     let user = req.user?.user;
 
     try {
+        // ✅ FormData transforme tout en string, donc versements arrive en JSON stringifié
+        const versements = typeof req.body?.versements === 'string'
+            ? JSON.parse(req.body.versements)
+            : (req.body?.versements ?? [])
+
+        const recuId = parseInt(req.body?.recuId) // ✅ conversion explicite
+
         const result = await prisma.$transaction(async (tx) => {
 
             const commandeRecuFound = await tx.commandeRecu.findFirst({
-                where: { id: req.body?.recuId, deletedAt: null },
+                where: { id: recuId, deletedAt: null },
                 include: {
                     versements: true,
                 }
@@ -72,12 +81,12 @@ const createCommandeRecuVersement = async (req, res) => {
                 where: { recuId: commandeRecuFound.id }
             });
 
-            /** */
+            let montantCumule = 0
             const nouveauxVersements = [];
 
-            for (const [index, rv] of (req.body?.versements ?? []).entries()) {
+            for (const [index, rv] of versements.entries()) {
                 console.log("L'index :", index);
-                console.log("Le reçu :", rv);
+                console.log("Le versement :", rv);
 
                 const last = await tx.commandeVersementRecu.findFirst({
                     orderBy: { id: 'desc' },
@@ -91,27 +100,47 @@ const createCommandeRecuVersement = async (req, res) => {
                 });
 
                 if (!resultCommandeRecuVersement.success) {
-                    throw { statusCode: 422, payload: { errors: { ...resultCommandeRecu.error.format(), recus: { _errors: [`La ligne ${index + 1} est erronnée! Veuillez bien reprendre`] } } } };
+                    throw {
+                        statusCode: 422,
+                        payload: {
+                            errors: {
+                                ...resultCommandeRecuVersement.error.format(),
+                                versements: { _errors: [`La ligne ${index + 1} est erronnée! Veuillez bien reprendre`] }
+                            }
+                        }
+                    };
                 }
 
                 if (resultCommandeRecuVersement.data.reference) {
-                    const recuExistant = await tx.commandeVersementRecu.findFirst({
+                    const versementExistant = await tx.commandeVersementRecu.findFirst({
                         where: {
                             reference: resultCommandeRecuVersement.data?.reference,
                             deletedAt: null
                         }
                     });
 
-                    if (recuExistant) {
+                    if (versementExistant) {
                         throw { statusCode: 409, payload: { error: `Cette référence existe déjà (ligne ${index + 1})` } };
                     }
                 }
+
+                montantCumule += resultCommandeRecuVersement.data.montant
+
+                if (montantCumule > commandeRecuFound.montant) {
+                    throw {
+                        statusCode: 400,
+                        payload: { error: `Le montant total reçu (${montantCumule}) serait supérieure au montant total du reçu (${commandeRecuFound.montant})` }
+                    };
+                }
+
+                // ✅ retrouve le fichier correspondant à CE versement précis
+                const fichierVersement = req.files?.find((f) => f.fieldname === `preuve_${index}`)
 
                 const newCommandeRecuVersement = await tx.commandeVersementRecu.create({
                     data: {
                         ...resultCommandeRecuVersement.data,
                         recuId: commandeRecuFound.id,
-                        preuve: req.file?.filename,
+                        preuve: fichierVersement?.filename,
                         createdById: user?.id
                     },
                 });

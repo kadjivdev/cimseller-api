@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getVentes,getDallyVentes,getComptabilizedVentes, getValidatedVentes,retrieveVente, createVente, updateVente, validateVente, deleteVente, getNoComptabilizedVentes, getNoTraitedVentes } from '../../../controllers/vente/venteController.js';
+import { getVentes, getDallyVentes, getComptabilizedVentes, getValidatedVentes, retrieveVente, createVente, updateVente, validateVente, deleteVente, getNoComptabilizedVentes, getNoTraitedVentes, getTraitedVentes, getNotValidatedVentes } from '../../../controllers/vente/venteController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
@@ -17,15 +17,18 @@ router.route("/")
 
 // ventes validées
 router.get("/validated", jwtAuth, getValidatedVentes)
+router.get("/no-validated", jwtAuth, getNotValidatedVentes)
 router.get("/dally", jwtAuth, getDallyVentes)
 router.get("/comptabilized", jwtAuth, getComptabilizedVentes)
 router.get("/no-comptabilized", jwtAuth, getNoComptabilizedVentes)
 router.get("/no-traited", jwtAuth, getNoTraitedVentes)
+router.get("/traited", jwtAuth, getTraitedVentes)
 
 router.route("/:id")
     .get(jwtAuth, retrieveVente)
     .put(jwtAuth, handlePreuveUpload, updateVente)
     .post(jwtAuth, handlePreuveUpload, validateVente)
     .delete(jwtAuth, deleteVente);
+
 
 export default router;

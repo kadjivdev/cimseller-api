@@ -74,17 +74,26 @@ const retrieveCommandeAccuse = async (req, res) => {
 
 // create a new commandeAccuse in the database and log the result
 const createCommandeAccuse = async (req, res) => {
-    console.log('Début d\'insersion de reçu', req.body);
+    console.log('Début d\'insersion d\'accusés', req.body);
+    console.log("Les files :",req.files)
+    
     let user = req.user?.user;
 
     try {
+        // ✅ FormData transforme tout en string, donc accuses arrive en JSON stringifié
+        const accuses = typeof req.body?.accuses === 'string'
+            ? JSON.parse(req.body.accuses)
+            : (req.body?.accuses ?? [])
+
+        const commandeId = parseInt(req.body?.commandeId) // ✅ conversion explicite
+
         const result = await prisma.$transaction(async (tx) => {
 
             const commandeFound = await tx.commande.findFirst({
-                where: { id: req.body?.commandeId, deletedAt: null },
+                where: { id: commandeId, deletedAt: null },
                 include: {
                     commandeDetails: true,
-                    commandeRecus: true,
+                    commandeAccuses: true,
                 }
             });
 
@@ -92,13 +101,15 @@ const createCommandeAccuse = async (req, res) => {
                 throw { statusCode: 404, payload: { error: "Cette commande n'existe pas" } };
             }
 
+            // Suppression des accusés précédents
             await tx.commandeAccuses.deleteMany({
                 where: { commandeId: commandeFound.id }
             });
 
-            let nouveauxAcusses = []
+            let montantCumule = 0;
+            const nouveauxAcusses = [];
 
-            for (const [index, ac] of (req.body?.accuses ?? []).entries()) {
+            for (const [index, ac] of accuses.entries()) {
                 console.log("L'index :", index);
                 console.log("L'accuse :", ac);
 
@@ -118,23 +129,34 @@ const createCommandeAccuse = async (req, res) => {
                 }
 
                 if (resultCommandeAccuse.data.reference) {
-                    const recuExistant = await tx.commandeAccuses.findFirst({
+                    const accuseExistant = await tx.commandeAccuses.findFirst({
                         where: {
                             reference: resultCommandeAccuse.data.reference,
                             deletedAt: null
                         }
                     });
 
-                    if (recuExistant) {
+                    if (accuseExistant) {
                         throw { statusCode: 409, payload: { error: `Cette référence existe déjà (ligne ${index + 1})` } };
                     }
                 }
+
+                montantCumule += resultCommandeAccuse.data.montant;
+                if (montantCumule > commandeFound.montant) {
+                    throw {
+                        statusCode: 400,
+                        payload: { error: `Le montant total accusé (${montantCumule}) serait supérieure au montant total du bon (${commandeFound.montant})` }
+                    };
+                }
+
+                // ✅ retrouve le fichier correspondant à CET accusé précis
+                const fichierAccuse = req.files?.find((f) => f.fieldname === `preuve_${index}`)
 
                 const newCommandeAccuse = await tx.commandeAccuses.create({
                     data: {
                         ...resultCommandeAccuse.data,
                         commandeId: commandeFound.id,
-                        preuve: req.file?.filename,
+                        preuve: fichierAccuse?.filename,
                     },
                 });
 

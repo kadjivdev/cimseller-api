@@ -247,6 +247,7 @@ model Programmation {
   validatedAt       DateTime?
   preuve            String?
   imprimer          Boolean                   @default(false)
+  oldImprimer       Boolean                   @default(false)
   transfert         Boolean                   @default(false)
 
   deletedAt         DateTime?
@@ -567,18 +568,21 @@ model Fournisseur {
 }
 
 model Camion {
-  id              Int              @id @default(autoincrement())
-  marqueId        Int?
-  immatriculation String           @unique
-  libelle         String?
+  id                      Int              @id @default(autoincrement())
+  marqueId                Int?
+  immatriculation         String           @unique
+  immatriculationRemorque String?
+  nombreIssieu            Float?
+  tonnage                 Float?
+  libelle                 String?
 
-  deletedAt       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  deletedAt               DateTime?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
-  //              relations
-  marque          Marque?         @relation(fields: [marqueId], references: [id])
-  programmations  Programmation[]
+  //                      relations
+  marque                  Marque?         @relation(fields: [marqueId], references: [id])
+  programmations          Programmation[]
 
   @@map("camions")
 }

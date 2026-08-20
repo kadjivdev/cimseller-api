@@ -8,10 +8,11 @@ dotenv.config();
 
 // Authentification controller
 const login = async (req, res) => {
-    console.log("Début de connexion ......")
+    console.log("Début de connexion ....")
 
     const { email, password } = req.body;
     try {
+
         // validation
         if (!email || !password) {
             return res.status(400).json({ error: 'Email et mot de passe sont requis' });
@@ -95,13 +96,6 @@ const login = async (req, res) => {
          * vu qu'on ne peut pas avoir accès au cookie access_token via Javascript
          * pour savoir si le user est connecté ou pas
          *  */
-        // res.cookie("isLoggedIn", true, {
-        //     httpOnly: false,
-        //     secure: isProduction,
-        //     // sameSite: "None",
-        //     sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
-        //     maxAge: parseInt(process.env.JWT_EXPIRES_IN) * 1000 // 1h minutes en ms
-        // });
 
         res.cookie("refresh_token", refresh_token, {
             httpOnly: true,
@@ -111,8 +105,23 @@ const login = async (req, res) => {
         });
 
         console.log("Connexion réussie!!")
+
+        // const allPermissions = await prisma.permission.findMany({
+        //     where: { deletedAt: null },
+        //     select: {
+        //         name: true
+        //     }
+        // });
+
         res.json({
-            user,
+            user: {
+                ...user,
+                role: user.role && {
+                    ...user.role,
+                    permissions: user.role.permissions?.map((rolePermission) => rolePermission.permission)
+                },
+            },
+            // permissions: allPermissions.map((per) => per.name),
             message: 'Vous êtes connecté.e'
         });
     } catch (error) {
