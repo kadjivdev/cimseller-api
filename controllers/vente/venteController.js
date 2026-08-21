@@ -70,10 +70,17 @@ async function deleteImageFile(filename) {
 // Get all ventes from the database and log them
 const getVentes = async (req, res) => {
     console.log("Getting ventes")
+    const user = req.user?.user;
 
     try {
         const ventes = await prisma.vente.findMany({
-            where: { deletedAt: null },
+            where: {
+                deletedAt: null,
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
+            },
             orderBy: { id: 'desc' },
             include: {
                 //  relations
@@ -123,10 +130,18 @@ const getVentes = async (req, res) => {
 // Get all validated ventes from the database and log them
 const getValidatedVentes = async (req, res) => {
     console.log("Getting validated ventes")
+    const user = req.user?.user;
 
     try {
         const ventes = await prisma.vente.findMany({
-            where: { statutId: 2, deletedAt: null },
+            where: {
+                statutId: 2,
+                deletedAt: null,
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
+            },
             orderBy: { id: 'desc' },
             include: {
                 reglements: {
@@ -146,10 +161,18 @@ const getValidatedVentes = async (req, res) => {
 // Get all no validated ventes from the database and log them
 const getNotValidatedVentes = async (req, res) => {
     console.log("Getting validated ventes")
+    const user = req.user?.user;
 
     try {
         const ventes = await prisma.vente.findMany({
-            where: { validatedAt: null, deletedAt: null },
+            where: {
+                validatedAt: null,
+                deletedAt: null,
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
+            },
             orderBy: { id: 'desc' },
             include: {
                 programmation: true,
@@ -179,6 +202,7 @@ const getNotValidatedVentes = async (req, res) => {
 // Get all daly ventes from the database and log them
 const getDallyVentes = async (req, res) => {
     console.log("Getting daly ventes")
+    const user = req.user?.user;
 
     try {
         const startOfDay = new Date();
@@ -193,7 +217,11 @@ const getDallyVentes = async (req, res) => {
                 createdAt: {
                     gte: startOfDay,
                     lte: endOfDay
-                }
+                },
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
             },
             orderBy: { id: 'desc' },
             include: {
@@ -223,6 +251,7 @@ const getDallyVentes = async (req, res) => {
 // Get all no comptabilized ventes from the database and log them
 const getNoComptabilizedVentes = async (req, res) => {
     console.log("Getting no comptabilised ventes")
+    const user = req.user?.user;
 
     try {
         const ventes = await prisma.vente.findMany({
@@ -231,7 +260,11 @@ const getNoComptabilizedVentes = async (req, res) => {
                 deletedAt: null,
                 venteComptability: {
                     is: null
-                }
+                },
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
             },
             orderBy: { id: 'desc' },
             include: {
@@ -261,6 +294,7 @@ const getNoComptabilizedVentes = async (req, res) => {
 // Get all comptabilized ventes from the database and log them
 const getComptabilizedVentes = async (req, res) => {
     console.log("Getting comptabilised ventes")
+    const user = req.user?.user;
 
     try {
         const ventes = await prisma.vente.findMany({
@@ -268,7 +302,11 @@ const getComptabilizedVentes = async (req, res) => {
                 deletedAt: null,
                 venteComptability: {
                     isNot: null
-                }
+                },
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
             },
             orderBy: { id: 'desc' },
             include: {
@@ -305,6 +343,7 @@ const getComptabilizedVentes = async (req, res) => {
 // Get all no traited ventes à traiter from the database and log them
 const getNoTraitedVentes = async (req, res) => {
     console.log("Getting np traited ventes")
+    const user = req.user?.user;
 
     try {
         const ventes = await prisma.vente.findMany({
@@ -312,7 +351,11 @@ const getNoTraitedVentes = async (req, res) => {
                 deletedAt: null,
                 venteComptability: {
                     is: { treatedAt: null }
-                }
+                },
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
             },
             orderBy: { id: 'desc' },
             include: {
@@ -349,6 +392,7 @@ const getNoTraitedVentes = async (req, res) => {
 // Get all traited ventes from the database and log them
 const getTraitedVentes = async (req, res) => {
     console.log("Getting traited ventes")
+    const user = req.user?.user;
 
     try {
         const ventes = await prisma.vente.findMany({
@@ -356,7 +400,11 @@ const getTraitedVentes = async (req, res) => {
                 deletedAt: null,
                 venteComptability: {
                     is: { treatedAt: { not: null } }
-                }
+                },
+                ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
             },
             orderBy: { id: 'desc' },
             include: {
@@ -524,6 +572,7 @@ const createVente = async (req, res) => {
 // retrieve a vente in the database and log the result
 const retrieveVente = async (req, res) => {
     console.log('Début de recupération de la vente:', req.body); // Log the incoming request body
+    const user = req.user?.user;
 
     let { id } = req.params
 
@@ -531,7 +580,13 @@ const retrieveVente = async (req, res) => {
         const result = await prisma.$transaction(async (tx) => {
             // found
             const venteFound = await tx.vente.findFirst({
-                where: { id: parseInt(id), deletedAt: null },
+                where: { id: parseInt(id), 
+                    deletedAt: null,
+                    ...(user?.roleId == 5 ?//role vendeur
+                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                    {}
+                ),
+                 },
                 include: {
                     commandeClient: true,
                     client: true,

@@ -160,7 +160,7 @@ const retrieveProgrammation = async (req, res) => {
     console.log('Début de recupération de la programmation:', req.body); // Log the incoming request body
 
     let { id } = req.params
-    console.log("ID :", id)
+    const user = req.user?.user;
 
     await prisma.$transaction(async (tx) => {
         try {
@@ -178,7 +178,13 @@ const retrieveProgrammation = async (req, res) => {
                     validatedBy: true,
                     ventes: {
                         orderBy: { id: 'desc' },
-                        where: { deletedAt: null },
+                        where: {
+                            deletedAt: null,
+                            ...(user?.roleId == 5 ?//role vendeur
+                                { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                                {}
+                            ),
+                        },
                         include: {
                             programmation: true,
                             commandeClient: {

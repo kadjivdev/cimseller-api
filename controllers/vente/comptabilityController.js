@@ -39,6 +39,7 @@ const createComptability = async (req, res) => {
     console.log('Début d\'envoie de vente à al comptabilité body:', req.body); // Log the incoming request body
 
     let user = req.user?.user
+    console.log('User connected: ', user);
 
     try {
         const result = await prisma.$transaction(async (tx) => {
@@ -80,6 +81,59 @@ const createComptability = async (req, res) => {
 
             return newComptability;
         })
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Failed to create comptability:', error);
+        const status = error.errorStatus || 500;
+        const payload = error.payLoad || { error: "Erreur serveur" };
+        res.status(status).json(payload);
+    }
+};
+
+//envoie en bloc de vente à la comptabilité in the database and log the result
+const createManyComptability = async (req, res) => {
+    console.log('Début d\'envoie des ventes à la comptabilité body:', req.body);
+
+    let user = req.user?.user
+    console.log('User connected: ', user);
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+           
+            // ventes non comptabilisées
+            const unComptalizedVentes = await tx.vente.findMany({
+                where: {
+                    venteComptability: {
+                        is: null
+                    },
+                    ...(user?.roleId == 5 ? // role vendeur
+                        { createdById: user?.id } // les vendeurs ne verront que leurs ventes
+                        : {}
+                    ),
+                }
+            });
+
+            if (unComptalizedVentes.length === 0) {
+                throw { errorStatus: 400, payLoad: { error: "Aucune vente à comptabiliser." } };
+            }
+
+            for (let index = 0; index < unComptalizedVentes.length; index++) {
+                const vente = unComptalizedVentes[index];
+
+                await tx.venteComptability.create({
+                    data: {
+                        venteId: vente.id, // ← lien avec la vente concernée
+                        senderToComptability: user.id,
+                        comptabilizedAt: new Date(),
+                        sentToComptabilityAt: new Date(),
+                    },
+                });
+            }
+
+            return unComptalizedVentes;
+        });
+
+        console.log("Ventes envoyées par vague à la comptabilité")
         res.status(201).json(result);
     } catch (error) {
         console.error('Failed to create comptability:', error);
@@ -174,4 +228,4 @@ const deleteComptability = async (req, res) => {
     })
 };
 
-export { getComptabilities, createComptability, updateComptability, deleteComptability };
+export { getComptabilities, createManyComptability, createComptability, updateComptability, deleteComptability };

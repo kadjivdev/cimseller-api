@@ -151,10 +151,11 @@ const getAllValidatedCommandes = async (req, res) => {
 
 // retrieve a commande in the database and log the result
 const retrieveCommande = async (req, res) => {
-    console.log('Request body:', req.body);
+    console.log('Retrieve a commande :', req.body);
 
     let { id } = req.params;
-    console.log("id :", id);
+    const user = req.user?.user;
+
 
     try {
         const commandeFound = await prisma.commande.findUnique({
@@ -180,7 +181,13 @@ const retrieveCommande = async (req, res) => {
                     where: { deletedAt: null }
                 },
                 programmations: {
-                    where: { deletedAt: null, },
+                    where: {
+                        deletedAt: null,
+                        ...(user?.roleId == 5 ?//role vendeur
+                            { zoneId: user?.zoneId } :// les vendeurs ne verront que les programmations de leurs zones
+                            {}
+                        ),
+                    },
                     include: {
                         commande: true,
                         zone: true,

@@ -1,9 +1,12 @@
 import { Router } from 'express';
-import { getComptabilities, createComptability, updateComptability, deleteComptability } from '../../../controllers/vente/comptabilityController.js';
+import { getComptabilities, createComptability, updateComptability, deleteComptability, createManyComptability } from '../../../controllers/vente/comptabilityController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
 const router = Router();
+
+// crée plusieurs comptabilités
+router.post("/many", jwtAuth, createManyComptability)
 
 router.route("/")
     .get(jwtAuth, getComptabilities)

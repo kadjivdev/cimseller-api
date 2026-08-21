@@ -21,8 +21,13 @@ const getUsers = async (req, res) => {
                         name: true,
                         description: true,
                     }
+                },
+                zone: {
+                    select: {
+                        id: true, name: true
+                    }
                 }
-            }
+            },
         })
 
         res.json(users.map(function (user) {
@@ -63,7 +68,8 @@ const retrieveUsers = async (req, res) => {
                             }
                         }
                     },
-                }
+                },
+                zone: true
             }
         });
 
@@ -91,7 +97,7 @@ const createUser = async (req, res) => {
         const result = userValidation.safeParse(req.body);
 
         if (!result.success) {
-            return res.status(400).json({
+            return res.status(402).json({
                 errors: result.error.format()
             });
         }
@@ -122,6 +128,17 @@ const createUser = async (req, res) => {
 
             if (!roleFound) {
                 return res.status(400).json({ error: 'Rôle non trouvé' });
+            }
+        }
+
+        // traitement du zoneId
+        if (result.data?.zoneId) {
+            let zoneFound = await prisma.zone.findUnique({
+                where: { id: result.data?.zoneId }
+            });
+
+            if (!zoneFound) {
+                return res.status(400).json({ error: 'Zone non trouvée' });
             }
         }
 
@@ -204,7 +221,7 @@ const updateUser = async (req, res) => {
         let userFound = await prisma.user.findUnique({
             where: { id: parseInt(id), deletedAt: null }
         });
-        if (!userFound) return res.status(404).json({ error: 'User non trouvé' });
+        if (!userFound) return res.status(402).json({ error: 'User non trouvé' });
 
         // ✅ destructure proprement, exclut confirm_password ET password bruts
         const { confirm_password, password: rawPassword, ...rest } = req.body
@@ -239,6 +256,17 @@ const updateUser = async (req, res) => {
             });
             if (!roleFound) {
                 return res.status(400).json({ error: 'Rôle non trouvé' });
+            }
+        }
+
+        // traitement du zoneId
+        if (data?.zoneId) {
+            let zoneFound = await prisma.zone.findUnique({
+                where: { id: data?.zoneId }
+            });
+
+            if (!zoneFound) {
+                return res.status(400).json({ error: 'Zone non trouvée' });
             }
         }
 

@@ -19,12 +19,14 @@ model User {
   email                                String                      @unique
   password                             String
   roleId                               Int?
+  zoneId                               Int?
   deletedAt                            DateTime?
   createdAt                            DateTime                    @default(now())
   updatedAt                            DateTime                    @updatedAt
 
   //                                   relations
   role                                 Role?                      @relation(fields: [roleId], references: [id])
+  zone                                 Zone?                      @relation(fields: [zoneId],references: [id])
   commandeDetails                      CommandeDetail[]           @relation("CommandeDetailCreatedBy")
   createdCommandes                     Commande[]                 @relation("CommandeCreatedBy")
   validatedCommandes                   Commande[]                 @relation("CommandeValidatedBy")
@@ -764,7 +766,7 @@ model Zone {
   // transferts     TransfertProgrammation[]
   programmations        Programmation[]
   representant          Representant?            @relation(fields: [representantId], references: [id])
-
+  users                 User[]
   @@map("zones")
 }
 

@@ -17,8 +17,14 @@ const userValidation = z.object({
         .min(6, "Le mot de passe doit faire au moins 6 caractères"),
 
     roleId: z
-        .number({ error: "Le rôle doit être un nombre" })
-        .optional(),
+        .number({ error: "Le rôle est requis et doit être un nombre" })
+        .int("Le rôle doit être un entier")
+        .positive("Le rôle doit être un identifiant valide"),
+
+    zoneId: z
+        .number({ error: "La zone est requise et doit être un nombre" })
+        .int("La zone doit être un entier")
+        .positive("La zone doit être un identifiant valide"),
 })
 
 export { userValidation };

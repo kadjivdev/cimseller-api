@@ -124,14 +124,14 @@ const getClients = async (req, res) => {
                     where: { validatedAt: { not: null } },
                     include: {
                         programmation: true,
-                        commandeClient:true,
-                        client:true,
-                        createdBy:true,
-                        validatedBy:true,
-                        produit:true,
-                        statut:true,
-                        type:true,
-                        typeFactureVente:true,
+                        commandeClient: true,
+                        client: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        produit: true,
+                        statut: true,
+                        type: true,
+                        typeFactureVente: true,
                     }
                 },
                 oldDette: true
@@ -203,14 +203,14 @@ const getActifClients = async (req, res) => {
                     where: { validatedAt: { not: null } },
                     include: {
                         programmation: true,
-                        commandeClient:true,
-                        client:true,
-                        createdBy:true,
-                        validatedBy:true,
-                        produit:true,
-                        statut:true,
-                        type:true,
-                        typeFactureVente:true,
+                        commandeClient: true,
+                        client: true,
+                        createdBy: true,
+                        validatedBy: true,
+                        produit: true,
+                        statut: true,
+                        type: true,
+                        typeFactureVente: true,
                     }
                 },
             }
@@ -526,6 +526,7 @@ const updateClient = async (req, res) => {
                 ...req.body,
                 ...(req.file && { profil: req.file?.filename }),
                 phone: req.body?.phone != null ? String(req.body.phone) : clientFound.phone,
+                email: req.body?.email != null ? req.body.email : clientFound.email,
             });
 
             if (!result.success) {
