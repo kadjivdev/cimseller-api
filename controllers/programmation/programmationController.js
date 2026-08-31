@@ -913,8 +913,8 @@ const transferProgrammation = async (req, res) => {
             }
 
             // verification des quantités
-            if (program.qteLivre > 0) {
-                throw { errorStatus: 400, payLoad: { error: "Cette programmation a déjà subit de livraison, vous pouvez plus la tranférer" } }
+            if (program.qteLivre == program.qteProgrammer) {
+                throw { errorStatus: 400, payLoad: { error: "Cette programmation est déjà livrée, vous pouvez plus la tranférer" } }
             }
 
             // verification de la zone

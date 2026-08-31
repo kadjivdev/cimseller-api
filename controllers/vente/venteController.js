@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { venteValidation } from '../../database/validations/vente/venteValidation.js';
+import { exportVentesToExcel } from '../../services/exportVenteService.js';
 
 const UPLOADS_DIR = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -398,6 +399,7 @@ const getTraitedVentes = async (req, res) => {
         const ventes = await prisma.vente.findMany({
             where: {
                 deletedAt: null,
+                exported: false,//seules les ventes non exportés
                 venteComptability: {
                     is: { treatedAt: { not: null } }
                 },
@@ -580,13 +582,14 @@ const retrieveVente = async (req, res) => {
         const result = await prisma.$transaction(async (tx) => {
             // found
             const venteFound = await tx.vente.findFirst({
-                where: { id: parseInt(id), 
+                where: {
+                    id: parseInt(id),
                     deletedAt: null,
                     ...(user?.roleId == 5 ?//role vendeur
-                    { createdById: user?.id } :// les vendeurs ne verront que leur ventes
-                    {}
-                ),
-                 },
+                        { createdById: user?.id } :// les vendeurs ne verront que leur ventes
+                        {}
+                    ),
+                },
                 include: {
                     commandeClient: true,
                     client: true,
@@ -827,6 +830,35 @@ const deleteVente = async (req, res) => {
     }
 };
 
+// exportation de vente
+const exportVentes = async (req, res) => {
+    console.log("Debut d'exportation des ventes :", req.body);
+
+    try {
+        const workbook = await exportVentesToExcel();
+
+        if (!workbook) {
+            return res.status(204).send(); // rien de nouveau à exporter
+        }
+
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=export_vente_${Date.now()}.xlsx`
+        );
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erreur lors de l\'export' });
+    }
+};
+
+
 export {
     getVentes,
     getNoTraitedVentes,
@@ -836,6 +868,7 @@ export {
     getDallyVentes,
     getValidatedVentes,
     getNotValidatedVentes,
+    exportVentes,
     retrieveVente,
     createVente,
     updateVente,

@@ -290,6 +290,37 @@ model TransfertProgrammation {
   @@map("transfert_programmations")
 }
 
+
+model CommandeClient {
+  id                   Int                    @id @default(autoincrement())
+
+  statutId             Int?
+  typeCommandeClientId Int?
+  clientId             Int?
+
+  code                 String                 @unique
+  date                 DateTime
+  montant              Float
+
+  createdById          Int?
+  validatedById        Int?
+
+  deletedAt            DateTime?
+  validatedAt          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  //                   relations
+  statut               StatutCommandeClient? @relation(fields: [statutId], references: [id])
+  type                 TypeCommandeClient?   @relation(fields: [typeCommandeClientId], references: [id])
+  client               Client?               @relation(fields: [clientId], references: [id])
+  createdBy            User?                 @relation("CommandeClientCreatedBy", fields: [createdById], references: [id])
+  validatedBy          User?                 @relation("CommandeClientValidatedBy", fields: [validatedById], references: [id])
+  ventes               Vente[]
+
+  @@map("commande_clients")
+}
+
 model Vente {
   id                        Int                         @id @default(autoincrement())
 
@@ -303,6 +334,8 @@ model Vente {
   treatedById               Int?
   createdById               Int?
   validatedById             Int?
+  exported                  Boolean                     @default(false)
+  exportedAt                DateTime?                   @default(now())
 
   code                      String                      @unique
   date                      DateTime
@@ -340,54 +373,24 @@ model Vente {
   @@map("ventes")
 }
 
-model CommandeClient {
-  id                   Int                    @id @default(autoincrement())
-
-  statutId             Int?
-  typeCommandeClientId Int?
-  clientId             Int?
-
-  code                 String                 @unique
-  date                 DateTime
-  montant              Float
-
-  createdById          Int?
-  validatedById        Int?
-
-  deletedAt            DateTime?
-  validatedAt          DateTime?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-
-  //                   relations
-  statut               StatutCommandeClient? @relation(fields: [statutId], references: [id])
-  type                 TypeCommandeClient?   @relation(fields: [typeCommandeClientId], references: [id])
-  client               Client?               @relation(fields: [clientId], references: [id])
-  createdBy            User?                 @relation("CommandeClientCreatedBy", fields: [createdById], references: [id])
-  validatedBy          User?                 @relation("CommandeClientValidatedBy", fields: [validatedById], references: [id])
-  ventes               Vente[]
-
-  @@map("commande_clients")
-}
-
 model VenteComptability {
   id                   Int        @id @default(autoincrement())
 
   venteId              Int?       @unique
-  aib                  Float?
-  tva                  Float?
-  ttcPrice             Float?
   usinePrice           Float?
-  marge                Float?
 
-  usinePrixHT          Float?
-  margePrice           Float?
-  htPrice              Float?
-  bruitPrice           Float?
-  netHorsTaxe          Float?
-  tvaPrice             Float?
-  aibPrice             Float?
-  prixTTC              Float?
+  unitPriceHT          Float?
+  unitPriceAib         Float?
+  unitPriceTva         Float?
+  unitPriceMarge       Float?
+  unitPriceTtc         Float?
+
+  priceHT              Float?
+  priceAib             Float?
+  priceTva             Float?
+  price118             Float?
+  priceMarge           Float?
+  priceTtc             Float?
 
   senderToComptability Int?
 

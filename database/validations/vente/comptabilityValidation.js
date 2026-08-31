@@ -17,16 +17,28 @@ const comptabilityValidation = z.object({
             invalid_type_error: "Ce champ doit être de format numérique"
         }).optional(),
 
-    aib: numberField()
+    unitPriceAib: numberField()
+        .optional(),
+    unitPriceTva: numberField()
+        .optional(),
+    unitPriceMarge: numberField()
+        .optional(),
+    unitPriceTtc: numberField()
         .optional(),
 
-    tva: numberField()
+    priceHT: numberField()
+        .optional(),
+    priceAib: numberField()
+        .optional(),
+    priceTva: numberField()
+        .optional(),
+    priceMarge: numberField()
         .optional(),
 
-    ttcPrice: numberField()
+    price118: numberField()
         .optional(),
-
-    marge: numberField()
+        
+    priceTtc: numberField()
         .optional(),
 
     senderToComptability: z

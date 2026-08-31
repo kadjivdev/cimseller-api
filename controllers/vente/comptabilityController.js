@@ -99,7 +99,7 @@ const createManyComptability = async (req, res) => {
 
     try {
         const result = await prisma.$transaction(async (tx) => {
-           
+
             // ventes non comptabilisées
             const unComptalizedVentes = await tx.vente.findMany({
                 where: {
@@ -172,12 +172,36 @@ const updateComptability = async (req, res) => {
             }
 
             // modification de la comptabilité de la base de données et log du résultat
-            let { tva, aib, ttcPrice, marge, usinePrixHT, margePrice, htPrice, bruitPrice, netHorsTaxe, tvaPrice, aibPrice, prixTTC } = resultComptability.data
+            let {
+                unitPriceHT,
+                unitPriceAib,
+                unitPriceTva,
+                unitPriceMarge,
+                unitPriceTtc,
+
+                priceHT,
+                priceAib,
+                priceTva,
+                priceMarge,
+                price118,
+                priceTtc,
+            } = resultComptability.data
 
             const updatedComptability = await tx.venteComptability.update({
                 where: { id: parseInt(id) },
                 data: {
-                    tva, aib, ttcPrice, marge, usinePrixHT, margePrice, htPrice, htPrice, bruitPrice, netHorsTaxe, tvaPrice, aibPrice, prixTTC,
+                    unitPriceHT,
+                    unitPriceAib,
+                    unitPriceTva,
+                    unitPriceMarge,
+                    unitPriceTtc,
+
+                    priceHT,
+                    priceAib,
+                    priceTva,
+                    priceMarge,
+                    priceTtc,
+                    price118,
                     treatedAt: new Date()
                 },
             });
