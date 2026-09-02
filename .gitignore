@@ -13,4 +13,7 @@ storage/logs/*
 uploads/*
 !uploads/.gitkeep
 public/uploads/*
+!public/
+!public/uploads/
+!public/uploads/.gitkeep
 !public/uploads/.gitkeep
