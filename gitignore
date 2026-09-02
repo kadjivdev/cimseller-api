@@ -18,5 +18,5 @@ storage/logs/*
 # Test files
 dbTest.js
 
-# uploards files
+# uploads files
 public/uploads/*

@@ -145,7 +145,8 @@ app.use("/api/reglements", reglementRoutes)
 app.use("/api/demandes-modification-vente", updateVenteRoutes)
 app.use("/api/demandes-suppression-vente", deleteVenteRoutes)
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
-});
+app.listen()
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Serveur démarré sur http://localhost:${PORT}`);
+// });
