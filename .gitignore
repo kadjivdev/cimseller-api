@@ -7,7 +7,9 @@ node_modules
 .env.production.local
 .env.example
 /generated/prisma
+generated/
 prisma/migrations/*
+storage/logs/*
 uploads/*
 !uploads/.gitkeep
 public/uploads/*

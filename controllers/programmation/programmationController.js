@@ -382,7 +382,10 @@ const updateProgrammation = async (req, res) => {
             if (resultProgrammation.data?.commandeId) {
                 commande = await tx.commande.findFirst({
                     where: { id: resultProgrammation.data?.commandeId },
-                    include: { commandeDetails: true, programmations: true }
+                    include: {
+                        commandeDetails: true,
+                        programmations: {where: {statutId: {not: 2}}}//on exclut les programmations annulées
+                    }
                 });
 
                 if (!commande) {

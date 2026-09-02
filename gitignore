@@ -17,3 +17,6 @@ storage/logs/*
 
 # Test files
 dbTest.js
+
+# uploards files
+public/uploads/*

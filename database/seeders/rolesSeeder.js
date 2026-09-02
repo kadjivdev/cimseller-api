@@ -76,6 +76,9 @@ const seedRoles = async () => {
             },
         },
     });
+
+    console.log('Roles seeded successfully.');
+
 };
 
 export default seedRoles;

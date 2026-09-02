@@ -59,6 +59,8 @@ const seedPermissions = async () => {
     await prisma.permission.createMany({
         data: permissions
     });
+
+    console.log('Permissions seeded successfully.');
 };
 
 export default seedPermissions;
