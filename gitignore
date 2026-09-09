@@ -6,7 +6,7 @@
 node_modules/
 
 # Prisma
-prisma/migrations
+# prisma/migrations
 
 # Generated files
 generated/

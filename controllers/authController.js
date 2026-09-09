@@ -88,6 +88,7 @@ const login = async (req, res) => {
             httpOnly: true,
             secure: isProduction,
             sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
+            domain: isProduction ? ".kadjivsarl.com" : undefined, // ← ajout
             maxAge: parseInt(process.env.JWT_EXPIRES_IN) * 1000 // 1h minutes en ms
         });
 
@@ -101,6 +102,7 @@ const login = async (req, res) => {
             httpOnly: true,
             secure: isProduction,
             sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
+            domain: isProduction ? ".kadjivsarl.com" : undefined, // ← ajout
             maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN) * 1000 // 1 J en ms
         });
 
@@ -147,6 +149,8 @@ const refreshToken = async (req, res) => {
             }
             const user = decoded.user;
 
+            const isProduction = process.env.NODE_ENV === "production";
+
             // creation du nouveua token d'accès
             const access_token = jwt.sign(
                 { user },
@@ -155,10 +159,12 @@ const refreshToken = async (req, res) => {
             );
 
             // envoi des tokens dans des cookies sécurisés
+            
             res.cookie("access_token", access_token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "None",
+                secure: isProduction,
+                sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
+                domain: isProduction ? ".kadjivsarl.com" : undefined, // ← ajout
                 maxAge: parseInt(process.env.JWT_EXPIRES_IN) * 1000 // 1h minutes en ms
             });
 
