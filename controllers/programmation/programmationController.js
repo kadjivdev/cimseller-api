@@ -1,13 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import logger from '../../config/logger.js';
 import prisma from '../../config/prisma.js';
-import bcrypt from 'bcrypt';
 import { programmationValidation } from '../../database/validations/programmation/programmationValidation.js';
 import { generateProgrammationsPDF } from '../../services/pdfService.js';
-import { error } from 'console';
-import { create } from 'domain';
 
 const formaVente = (vente) => {
     console.log('vente.preuve', vente.preuve)
@@ -58,9 +54,6 @@ function validatePreuveFile(file, { required }) {
     }
     return { ok: true };
 }
-
-const toImageUrl = (filename) =>
-    filename ? `${process.env.BASE_URL}/public/uploads/${filename}` : null;
 
 // Get all programmation from the database and log them
 const getProgrammations = async (req, res) => {
@@ -763,7 +756,6 @@ const getPdfProgrammations = async (req, res) => {
     }
 };
 
-
 // actualize a programmation in the database and log the result
 const actualiseProgrammation = async (req, res) => {
     console.log('Debut d\'actualisation de la programmation:', req.body); // Log the incoming request body
@@ -871,7 +863,7 @@ const livraisonProgrammation = async (req, res) => {
                 data: {
                     dateLivraison: new Date(dateLivraison),
                     newBl,
-                    livraisonComment,
+                    livraisonComment: `${program?.livraisonComment || ''} | ${`${livraisonComment?? `Livraison :` } - Qte : ${qteLivre}`}`,
                     statutId,
                     qteLivre: totalQteLivre,
                     preuve: req.file?.filename,

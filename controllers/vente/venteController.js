@@ -19,9 +19,23 @@ const formatVente = (vente) => {
     let reglementAmount = vente.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
     let reste = vente.montant - reglementAmount
 
+    /* programmation: {
+                    include:{
+                        commande:{
+                            commandeDetails:true
+                        }
+                    }
+                },
+    **/
+    let usinePrice = vente?.programmation?.commande?.
+        commandeDetails?.[0]?.unitePrice ?? 0
+
+    console.log("usinePrice :", usinePrice)
+
     const data = {
         ...vente,
         reglementAmount,
+        usinePrice,
         reste,
         preuve: toImageUrl(vente.preuve)
     }
@@ -367,7 +381,15 @@ const getNoTraitedVentes = async (req, res) => {
                         }
                     }
                 },
-                programmation: true,
+                programmation: {
+                    include: {
+                        commande: {
+                            include: {
+                                commandeDetails: true
+                            }
+                        }
+                    }
+                },
                 commandeClient: {
                     include: {
                         client: true

@@ -15,4 +15,5 @@ public/uploads/*
 !public/
 !public/uploads/
 !public/uploads/.gitkeep
+server.js
 !public/uploads/.gitkeep
