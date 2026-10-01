@@ -1,10 +1,11 @@
-import { email } from 'zod';
 import prisma from '../../config/prisma.js';
 import bcrypt from 'bcrypt'
 
 const role = await prisma.role.findFirst({
     where: { deletedAt: null }
 })
+
+console.log("le role first:", role)
 
 const users = [
     {
@@ -24,13 +25,13 @@ const users = [
         fullname: "GBADAMASSI RODOLPHO T.",
         email: "gbadamassi.rodolpho@kadjivsarl.com",
         password: "$2y$10$D59Bl7DfzbENuWWkcN5Izu4XQ9XS/QXkGSirjTtsBMb7yunkZ1j1u",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "SOSSA RAOUL",
         email: "_______raoulsegnon88@gmail.com",
         password: "$2y$10$dRD4AC6JrFUt12v3b6AYiuJivzRzj2ZyfkHSMnGuCs.HLJkuow7eW",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "OBOGNON Tchègoun Babatoundé Rodolphe",
@@ -54,7 +55,7 @@ const users = [
         fullname: "NONDICHAO MANSOUROU",
         email: "nondichao.mansourou@kadjivsarl.com",
         password: "$2y$10$FUxOwtczf2paSf5wDuyRQ.y3W4I0NcOZiDaWKuIYZo5KCbSnGbwvi",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "NASSARA LUC",
@@ -66,7 +67,7 @@ const users = [
         fullname: "SALAMOU LAWANI ABOUDOU",
         email: "_____aboudousalamou.lawani@kadjivsarl.com",
         password: "_____$2y$10$Rjuw7PMvh.Nj4Tn0ZGcxSuNnZNaUNbjVoSWqbmBLtNQPNWI3o3bGm",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "DJITRINOU HIPPOLYTE",
@@ -78,13 +79,13 @@ const users = [
         fullname: "CODJA GLADYS",
         email: "codjia.gladys@kadjivsarl.com",
         password: "$2y$10$FUxOwtczf2paSf5wDuyRQ.y3W4I0NcOZiDaWKuIYZo5KCbSnGbwvi",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "BOSSOU FREUD",
         email: "___freud.benoitp.bossou@kadjivsarl.com",
         password: "$2y$10$GJFa2RbqfQkDfofk0tNW2OBu0eBKXqorrnp6ddCtnU22iI0wqwFwC",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "AIGO Olive Yaovi",
@@ -96,13 +97,13 @@ const users = [
         fullname: "HOUSSA AIME",
         email: "aime.houssa@kadjivsarl.com",
         password: "$2y$10$BWMZRxEaKHqElbNeoE5CP.4TI9lxpapr3ZW77heWrgWGXUlQ.S7R2",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "DAGBE BONAVENTURE",
         email: "dagbe.bonaventure@kadjivsarl.com",
         password: "$2y$10$FUxOwtczf2paSf5wDuyRQ.y3W4I0NcOZiDaWKuIYZo5KCbSnGbwvi",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "ZINSOU CARLOS",
@@ -114,13 +115,13 @@ const users = [
         fullname: "KOUNOU CARMEN LAURENDA",
         email: "carmen.kounou@kadjivsarl.com",
         password: "$2y$10$R7WNG/zuUGPrOqhE1oxa5utb4UFmFLWVMmhQsz.OjWK/xfGg64TOy",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "FAHIMOU DJIBRIL",
         email: "fahimou.djibril@kadjivsarl.com",
         password: "$2y$10$8gTOAgSsD/NxrwL0M8Hzwudq6LzHeAMECP5A68xsOsBZd0/1qKUqO",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "ALASSANE FOFANA ANDIL",
@@ -132,31 +133,31 @@ const users = [
         fullname: "GOUDJANIAN FREDY",
         email: "____fredy.goudjanian@kadjivsarl.com",
         password: "____$2y$10$SBiO3TmREA.0TSChBI/FAe.64isi2bkUhR/0jTcemu0Fx1mmmoYVG",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "SEMIOU ALAMOU",
         email: "semiou.alamou@kadjivsarl.com",
         password: "$2y$10$FUxOwtczf2paSf5wDuyRQ.y3W4I0NcOZiDaWKuIYZo5KCbSnGbwvi",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "kadjiv",
         email: "kadjiv@gmail.com",
         password: "$2y$10$cBjNkWAXCnZDqrePJAT4i.OhVrFL.Q.M/FZ7535VzeKLPRjjRYvCO",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "Luc Oluwatiyin h. OLouDE",
         email: "oloudeoluwatoyin@gmail.com",
         password: "$2y$10$unvVIUtZz//8qwLqqx67zek.81LlDvF3mpnkTTjAeXAg4v1XJh6gq",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "ADEBOUMY Lookman",
         email: "adeboumy@kadjivsarl.com",
         password: "$2y$10$N7ZxR5uwff9pijhsStQmbumJqQh3PydxrZrO9lvzTuHCGr7aDfV42",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "DJOSSOU Johannes",
@@ -180,13 +181,13 @@ const users = [
         fullname: "TCHENAGNON NONDOME MURIELLE HERMANCE",
         email: "___murielletchenangnon@gmail.com",
         password: "$2y$10$Qty6EhH5PB1NqRifVsd.TOUxA0/oHQ5HDMA/9hR0l6znX92OIQnua",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "ABDOUL Aziz Abdoulaye",
         email: "amidechasse@gmail.com",
         password: "$2y$10$ACxJriw2Wp5dwNzn5eX1y.q6FQgzEBzjTxSi.pTh3dtW/OK418IY6",
-        zoneId:null
+        zoneId: null
     },
     {
         fullname: "ADECHI Moulisine",

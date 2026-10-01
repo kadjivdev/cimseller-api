@@ -43,7 +43,6 @@ const roles = [
     }
 ];
 
-
 const seedRoles = async () => {
     // Supprimer les rôles existants pour éviter les doublons
     // TRUNCATE avec RESTART IDENTITY : vide la table ET remet la séquence auto-increment à 1

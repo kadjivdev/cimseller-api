@@ -10,12 +10,6 @@ const seedDatabase = async () => {
         await userSeeders(),
         await seedPermissions(),
         await seedRoles(),
-        // await Promise.all([
-        //     userSeeders(),
-        //     seedPermissions(),
-        //     seedRoles(),
-        //     seedTools(),
-        // ]);
 
         console.log('Database seeding completed successfully.');
     } catch (error) {
