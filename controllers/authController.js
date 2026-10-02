@@ -1,7 +1,6 @@
-import logger from "../config/logger.js";
 import prisma from "../config/prisma.js";
 import bcrypt from "bcrypt";
-import jwt, { decode } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -85,7 +84,7 @@ const login = async (req, res) => {
 
         // envoi des tokens dans des cookies sécurisés
         res.cookie("access_token", access_token, {
-            httpOnly: true,
+            httpOnly: false,
             secure: isProduction,
             sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
             domain: isProduction ? ".kadjivsarl.com" : undefined, // ← ajout
@@ -99,7 +98,7 @@ const login = async (req, res) => {
          *  */
 
         res.cookie("refresh_token", refresh_token, {
-            httpOnly: true,
+            httpOnly: false,
             secure: isProduction,
             sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
             domain: isProduction ? ".kadjivsarl.com" : undefined, // ← ajout
@@ -161,7 +160,7 @@ const refreshToken = async (req, res) => {
             // envoi des tokens dans des cookies sécurisés
             
             res.cookie("access_token", access_token, {
-                httpOnly: true,
+                httpOnly: false,
                 secure: isProduction,
                 sameSite: isProduction ? "None" : "Lax", // ✅ Lax en dev, None en prod
                 domain: isProduction ? ".kadjivsarl.com" : undefined, // ← ajout
@@ -182,8 +181,8 @@ const logout = async (req, res) => {
 
     try {
         const { access_token } = req.cookies;
-        console.log("Refresh token:", access_token)
-        // console.log("Cookies:", req.cookies)
+        console.log("Access token:", access_token)
+        console.log("Cookies:", req.cookies)
 
         if (!access_token) {
             return res.status(401).json({ error: 'Refresh token is required' });
