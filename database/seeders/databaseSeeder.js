@@ -3,6 +3,7 @@ import seedRoles from "./rolesSeeder.js";
 import seedPermissions from "./permissionsSeeder.js";
 import seedTools from "./toolsSeeder.js";
 import userSeeders from "./userSeeder.js";
+import clientRefresh from "./clientSeeder.js";
 
 const seedDatabase = async () => {
     try {
@@ -10,6 +11,7 @@ const seedDatabase = async () => {
         await userSeeders(),
         await seedPermissions(),
         await seedRoles(),
+        await clientRefresh(),
 
         console.log('Database seeding completed successfully.');
     } catch (error) {

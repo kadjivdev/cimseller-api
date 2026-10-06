@@ -623,6 +623,7 @@ model AvaliseurProgrammation {
 model Client {
   id                        Int                         @id @default(autoincrement())
 
+  oldId                     Int?
   zoneId                    Int?
   statutId                  Int?
   typeId                    Int?

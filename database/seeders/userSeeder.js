@@ -5,8 +5,6 @@ const role = await prisma.role.findFirst({
     where: { deletedAt: null }
 })
 
-console.log("le role first:", role)
-
 const users = [
     {
         fullname: 'Admin',

@@ -50,11 +50,35 @@ async function deleteProfil(filename) {
 const toImageUrl = (filename) =>
     filename ? `${process.env.BASE_URL}/public/uploads/${filename}` : null;
 
-const formatClient = (client) => {
+const getClientOldSystemSold = async (clientId) => {
+    const url = `https://cimseller.kadjivsarl.com/newclient/${clientId}/solde`
+    try {
+        const response = await fetch(url)
+        const contentType = response.headers.get("content-type") || ""
+
+        if (!response.ok || !contentType.includes("application/json")) {
+            console.warn(`API solde: client ${clientId}, statut ${response.status}, type "${contentType}"`)
+            return { solde: 0 }
+        }
+
+        const data = await response.json()
+        return { solde: Number(data?.solde) || 0 }
+    } catch (err) {
+        console.error(`API solde: erreur pour le client ${clientId}:`, err.message)
+        return { solde: 0 }
+    }
+}
+
+const formatClient = async (client) => {
     let approvisionnementAmount = client.approvisionnements?.reduce((a, appro) => (a + appro.montant), 0) ?? 0;
     let venteAmount = client.ventes?.reduce((a, vente) => (a + vente.montant), 0) ?? 0;
     let reglementAmount = client.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
-    let solde = approvisionnementAmount - venteAmount
+    let currentSolde = approvisionnementAmount - venteAmount
+
+    let res = await getClientOldSystemSold(client?.oldId)
+    const oldSolde = res?.solde ?? 0
+
+    let solde = currentSolde + oldSolde
 
     return {
         ...client,
@@ -62,6 +86,7 @@ const formatClient = (client) => {
         venteAmount,
         reglementAmount,
         solde,
+        oldSolde,
         profil: toImageUrl(client.profil),
     }
 };
@@ -138,7 +163,8 @@ const getClients = async (req, res) => {
             },
         });
 
-        res.json(clients.map(formatClient));
+        const formattedClients = await Promise.all(clients.map(formatClient));
+        res.json(formattedClients);
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch clients' });
@@ -218,7 +244,8 @@ const getActifClients = async (req, res) => {
 
         console.log("Clients actifs recuperés avec succès!")
 
-        res.json(clients.map(formatClient));
+        const formattedClients = await Promise.all(clients.map(formatClient));
+        res.json(formattedClients);
     } catch (error) {
         console.log('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch actif clients' });
@@ -354,16 +381,24 @@ const getBefClients = async (req, res) => {
 };
 
 // Get all clients
+// Retrieve one client
 const retrieveClient = async (req, res) => {
     console.log("Retrieving a client")
-    const { id } = req.params
+    const id = parseInt(req.params.id)
+    console.log("Client ID:", id)
+
+    if (Number.isNaN(id)) {
+        return res.status(400).json({ error: "ID client invalide" })
+    }
 
     try {
-        // search client
         const clientFound = await prisma.client.findFirst({
-            where: { id: parseInt(id), deletedAt: null },
+            where: { id, deletedAt: null },
             include: {
                 approvisionnements: {
+                    where: { NOT: { validatedAt: null } },
+                },
+                ventes: {
                     where: { NOT: { validatedAt: null } },
                 },
                 reglements: {
@@ -373,11 +408,15 @@ const retrieveClient = async (req, res) => {
             }
         })
 
-        if (!clientFound) return res.status(404).json({ error: "Ce client n'existe pas!" })
-        res.json(formatClient(clientFound));
+        if (!clientFound) {
+            return res.status(404).json({ error: "Ce client n'existe pas!" })
+        }
+
+        const formattedClient = await formatClient(clientFound)
+        res.json(formattedClient)
     } catch (error) {
-        console.error('Prisma query failed:', error);
-        res.status(500).json({ error: 'Failed to fetch clients' });
+        console.error('Prisma query failed:', error)
+        res.status(500).json({ error: 'Failed to fetch client' })
     }
 };
 
@@ -480,6 +519,7 @@ const importClients = async (req, res) => {
             const data = XLSX.utils.sheet_to_json(worksheet);
 
             const clients = data.map((row) => ({
+                oldId: row.ID ?? null,
                 raison_sociale: row.Nom ?? null,
                 phone: row.Telephone != null ? String(row.Telephone).trim() : null,
                 zoneId: row.Zone ? parseInt(row.Zone) : null,
