@@ -91,76 +91,79 @@ const formatClient = async (client) => {
     }
 };
 
+const queryClient = {
+    orderBy: { id: 'desc' },
+    include: {
+        zone: true,
+        type: true,
+        statut: true,
+        approvisionnements: {
+            where: { NOT: { validatedAt: null } },
+            select: {
+                id: true,
+                code: true,
+                reference: true,
+                montant: true,
+                date: true,
+                preuve: true,
+                comment: true,
+                compteBancaire: true,
+                createdBy: true,
+                validatedBy: true,
+                typeDetailRecu: true,
+                createdAt: true,
+                validatedAt: true,
+            }
+        },
+        reglements: {
+            where: { NOT: { validatedAt: null } },
+            select: {
+                id: true,
+                code: true,
+                reference: true,
+                montant: true,
+                preuve: true,
+                vente: {
+                    select: {
+                        id: true,
+                        code: true,
+                        montant: true
+                    }
+                },
+                date: true,
+                comment: true,
+                compteBancaire: true,
+                createdBy: true,
+                validatedBy: true,
+                typeDetailRecu: true,
+                createdAt: true,
+                validatedAt: true,
+            }
+        },
+        ventes: {
+            where: { validatedAt: { not: null } },
+            include: {
+                programmation: true,
+                commandeClient: true,
+                client: true,
+                createdBy: true,
+                validatedBy: true,
+                produit: true,
+                statut: true,
+                type: true,
+                typeFactureVente: true,
+            }
+        },
+    }
+}
+
 // Get all clients
 const getClients = async (req, res) => {
     console.log("Getting clients")
     try {
         const clients = await prisma.client.findMany({
             where: { deletedAt: null },
-            orderBy: { id: 'desc' },
-            include: {
-                zone: true,
-                type: true,
-                statut: true,
-                approvisionnements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        date: true,
-                        preuve: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-                reglements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        preuve: true,
-                        vente: {
-                            select: {
-                                id: true,
-                                code: true,
-                                montant: true
-                            }
-                        },
-                        date: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-                ventes: {
-                    where: { validatedAt: { not: null } },
-                    include: {
-                        programmation: true,
-                        commandeClient: true,
-                        client: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        produit: true,
-                        statut: true,
-                        type: true,
-                        typeFactureVente: true,
-                    }
-                },
-                oldDette: true
-            },
+            ...queryClient
         });
 
         const formattedClients = await Promise.all(clients.map(formatClient));
@@ -177,75 +180,14 @@ const getActifClients = async (req, res) => {
     try {
         const clients = await prisma.client.findMany({
             where: { statutId: 1, deletedAt: null },
-            orderBy: { id: 'desc' },
-            include: {
-                zone: true,
-                type: true,
-                statut: true,
-                approvisionnements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        date: true,
-                        preuve: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-                reglements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        preuve: true,
-                        vente: {
-                            select: {
-                                id: true,
-                                code: true,
-                                montant: true
-                            }
-                        },
-                        date: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-                ventes: {
-                    where: { validatedAt: { not: null } },
-                    include: {
-                        programmation: true,
-                        commandeClient: true,
-                        client: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        produit: true,
-                        statut: true,
-                        type: true,
-                        typeFactureVente: true,
-                    }
-                },
-            }
+            ...queryClient
         });
 
         console.log("Clients actifs recuperés avec succès!")
 
         const formattedClients = await Promise.all(clients.map(formatClient));
         res.json(formattedClients);
+
     } catch (error) {
         console.log('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch actif clients' });
@@ -258,58 +200,11 @@ const getInActifClients = async (req, res) => {
     try {
         const clients = await prisma.client.findMany({
             where: { statutId: 2, deletedAt: null },
-            orderBy: { id: 'desc' },
-            include: {
-                zone: true,
-                type: true,
-                statut: true,
-                approvisionnements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        date: true,
-                        preuve: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-                reglements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        preuve: true,
-                        vente: {
-                            select: {
-                                id: true,
-                                code: true,
-                                montant: true
-                            }
-                        },
-                        date: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-            }
+            ...queryClient
         });
 
-        res.json(clients.map(formatClient));
+        const formattedClients = await Promise.all(clients.map(formatClient));
+        res.json(formattedClients);
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch inactifs clients' });
@@ -322,58 +217,11 @@ const getBefClients = async (req, res) => {
     try {
         const clients = await prisma.client.findMany({
             where: { statutId: 3, deletedAt: null },
-            orderBy: { id: 'desc' },
-            include: {
-                zone: true,
-                type: true,
-                statut: true,
-                approvisionnements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        date: true,
-                        preuve: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-                reglements: {
-                    where: { NOT: { validatedAt: null } },
-                    select: {
-                        id: true,
-                        code: true,
-                        reference: true,
-                        montant: true,
-                        preuve: true,
-                        vente: {
-                            select: {
-                                id: true,
-                                code: true,
-                                montant: true
-                            }
-                        },
-                        date: true,
-                        comment: true,
-                        compteBancaire: true,
-                        createdBy: true,
-                        validatedBy: true,
-                        typeDetailRecu: true,
-                        createdAt: true,
-                        validatedAt: true,
-                    }
-                },
-            }
+            ...queryClient
         });
 
-        res.json(clients.map(formatClient));
+        const formattedClients = await Promise.all(clients.map(formatClient));
+        res.json(formattedClients);
     } catch (error) {
         console.error('Prisma query failed:', error);
         res.status(500).json({ error: 'Failed to fetch befs clients' });
