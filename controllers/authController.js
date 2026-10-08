@@ -11,7 +11,6 @@ const login = async (req, res) => {
 
     const { email, password } = req.body;
     try {
-
         // validation
         if (!email || !password) {
             return res.status(400).json({ error: 'Email et mot de passe sont requis' });
@@ -106,14 +105,6 @@ const login = async (req, res) => {
         });
 
         console.log("Connexion réussie!!")
-
-        // const allPermissions = await prisma.permission.findMany({
-        //     where: { deletedAt: null },
-        //     select: {
-        //         name: true
-        //     }
-        // });
-
         res.json({
             user: {
                 ...user,
@@ -158,7 +149,7 @@ const refreshToken = async (req, res) => {
             );
 
             // envoi des tokens dans des cookies sécurisés
-            
+
             res.cookie("access_token", access_token, {
                 httpOnly: false,
                 secure: isProduction,
@@ -188,10 +179,13 @@ const logout = async (req, res) => {
             return res.status(401).json({ error: 'Refresh token is required' });
         }
 
-        const isProduction = process.env.NODE_ENV === "production";
+        // const isProduction = process.env.NODE_ENV === "production";
 
-        res.clearCookie("access_token");
-        res.clearCookie("refresh_token");
+        // res.clearCookie("access_token");
+        // res.clearCookie("refresh_token");
+
+        res.clearCookie("access_token", { domain: isProduction ? ".kadjivsarl.com" : undefined, path: "/", secure: isProduction, sameSite: "none" })
+        res.clearCookie("refresh_token", { domain: isProduction ? ".kadjivsarl.com" : undefined, path: "/", secure: isProduction, sameSite: "none" })
 
         console.log("deconnecté.e avec succès")
         res.json({ message: 'Logged out successfully' });
