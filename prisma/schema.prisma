@@ -344,6 +344,7 @@ model Vente {
   qteTotal                  Float?
   remise                    Float?
   transport                 Float?
+  filleuls                  String?
   destination               String?
   observation               String?
   preuve                    String?

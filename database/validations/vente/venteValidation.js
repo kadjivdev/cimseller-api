@@ -74,6 +74,7 @@ const venteValidation = z.object({
 
     reglemented: booleanField().optional(),
 
+    filleuls: z.string("Ce champ doit être de format string").optional(),
     observation: z.string("Ce champ doit être de format string").optional(),
 });
 

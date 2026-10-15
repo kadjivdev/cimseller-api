@@ -19,14 +19,6 @@ const formatVente = (vente) => {
     let reglementAmount = vente.reglements?.reduce((a, regle) => (a + regle.montant), 0) ?? 0;
     let reste = vente.montant - reglementAmount
 
-    /* programmation: {
-                    include:{
-                        commande:{
-                            commandeDetails:true
-                        }
-                    }
-                },
-    **/
     let usinePrice = vente?.programmation?.commande?.
         commandeDetails?.[0]?.unitePrice ?? 0
 
@@ -465,7 +457,9 @@ const getTraitedVentes = async (req, res) => {
 // create a new ventes in the database and log the result
 const createVente = async (req, res) => {
     console.log('Request body:', req.body);
-    let user = req.user?.user;
+    const user = req.user?.user;
+    const payeur = (req.body?.name || req.body?.ifu) ? `${req.body?.name} - ${req.body?.ifu}` : ''
+    console.log("Client payeur :", payeur)
 
     try {
         const result = await prisma.$transaction(async (tx) => {
@@ -478,9 +472,11 @@ const createVente = async (req, res) => {
                 orderBy: { id: 'desc' },
                 select: { id: true }
             });
+
             const resultVente = venteValidation.safeParse({
                 ...req.body,
-                code: `VD-00${last?.id ? (last.id + 1) : 1}`
+                code: `VD-00${last?.id ? (last.id + 1) : 1}`,
+                filleuls: payeur
             });
 
             if (!resultVente.success) {
@@ -572,7 +568,7 @@ const createVente = async (req, res) => {
                     montant,
                     createdById: user?.id,
                     statutId: 1,
-                    preuve: req.file ? req.file.filename : null
+                    preuve: req.file ? req.file.filename : null,
                 },
             });
 
