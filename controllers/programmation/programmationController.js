@@ -346,7 +346,6 @@ const updateProgrammation = async (req, res) => {
     console.log('Request body:', req.body); // Log the incoming request body
 
     let { id } = req.params
-    const user = req.user?.user
 
     try {
         const result = await prisma.$transaction(async (tx) => {
@@ -362,7 +361,7 @@ const updateProgrammation = async (req, res) => {
 
             // validation
 
-            const resultProgrammation = programmationValidation.safeParse({ ...req.body });
+            const resultProgrammation = programmationValidation.partial().safeParse(req.body);
 
             console.log("resultProgrammation :", resultProgrammation.data)
 
@@ -370,14 +369,23 @@ const updateProgrammation = async (req, res) => {
                 throw { errorStatus: 422, payLoad: { errors: resultProgrammation.error.format() } }
             }
 
+            if (Object.keys(resultProgrammation.data).length === 0) {
+                throw { errorStatus: 422, payLoad: { error: "Aucune donnée valide à mettre à jour" } }
+            }
+
             // traitement du commande
             let commande = null
-            if (resultProgrammation.data?.commandeId) {
+            const programmationData = { ...programmationFound, ...resultProgrammation.data }
+            const quantityOrCommandeChanged =
+                Object.hasOwn(resultProgrammation.data, 'commandeId') ||
+                Object.hasOwn(resultProgrammation.data, 'qteProgrammer')
+
+            if (quantityOrCommandeChanged && programmationData.commandeId) {
                 commande = await tx.commande.findFirst({
-                    where: { id: resultProgrammation.data?.commandeId },
+                    where: { id: programmationData.commandeId },
                     include: {
                         commandeDetails: true,
-                        programmations: {where: {statutId: {not: 2}}}//on exclut les programmations annulées
+                        programmations: { where: { statutId: { not: 2 } } }//on exclut les programmations annulées
                     }
                 });
 
@@ -387,9 +395,9 @@ const updateProgrammation = async (req, res) => {
             }
 
             // traitement de la zone
-            if (resultProgrammation.data?.zoneId) {
+            if (Object.hasOwn(resultProgrammation.data, 'zoneId') && programmationData.zoneId) {
                 let zone = await tx.zone.findFirst({
-                    where: { id: resultProgrammation.data?.zoneId }
+                    where: { id: programmationData.zoneId }
                 });
 
                 if (!zone) {
@@ -398,9 +406,9 @@ const updateProgrammation = async (req, res) => {
             }
 
             // traitement du camion
-            if (resultProgrammation.data?.camionId) {
+            if (Object.hasOwn(resultProgrammation.data, 'camionId') && programmationData.camionId) {
                 let camion = await tx.camion.findFirst({
-                    where: { id: resultProgrammation.data?.camionId }
+                    where: { id: programmationData.camionId }
                 });
 
                 if (!camion) {
@@ -409,9 +417,9 @@ const updateProgrammation = async (req, res) => {
             }
 
             // traitement du chauffeur
-            if (resultProgrammation.data?.chauffeurId) {
+            if (Object.hasOwn(resultProgrammation.data, 'chauffeurId') && programmationData.chauffeurId) {
                 let chauffeur = await tx.chauffeur.findFirst({
-                    where: { id: resultProgrammation.data?.chauffeurId }
+                    where: { id: programmationData.chauffeurId }
                 });
 
                 if (!chauffeur) {
@@ -420,9 +428,9 @@ const updateProgrammation = async (req, res) => {
             }
 
             // traitement de l'avaliseur
-            if (resultProgrammation.data?.avaliseurId) {
+            if (Object.hasOwn(resultProgrammation.data, 'avaliseurId') && programmationData.avaliseurId) {
                 let avaliseur = await tx.avaliseurProgrammation.findFirst({
-                    where: { id: resultProgrammation.data?.avaliseurId }
+                    where: { id: programmationData.avaliseurId }
                 });
 
                 if (!avaliseur) {
@@ -431,42 +439,46 @@ const updateProgrammation = async (req, res) => {
             }
 
             // verification de la qteProgrammer
-            if (resultProgrammation.data?.qteProgrammer <= 0) {
-                throw { errorStatus: 400, payLoard: { error: "La quantité doit depasser 0" } }
+            if (quantityOrCommandeChanged &&
+                (!Number.isFinite(programmationData.qteProgrammer) || programmationData.qteProgrammer <= 0)) {
+                throw { errorStatus: 400, payLoad: { error: "La quantité doit depasser 0" } }
             }
 
             /**Verification de la quantité déjà programmée 
              * sur cette commande
             */
 
-            //celle déjà programmée
-            console.log("filtered programmation :", commande.programmations?.filter((pr) => pr.id != id))
+            if (quantityOrCommandeChanged) {
+                if (!commande) {
+                    throw { errorStatus: 404, payLoad: { error: 'Cette commande n\'existe pas' } }
+                }
 
-            const qteTotalDejaProgramme = (commande.programmations?.filter((pr) => pr.id != id) || [])
-                .reduce((total, c) => total + c.qteProgrammer, 0);
+                //celle déjà programmée
+                console.log("filtered programmation :", commande.programmations?.filter((pr) => pr.id != id))
 
-            //celle programmée & celle entrante
-            const qteTotalProgrammer = qteTotalDejaProgramme + resultProgrammation.data?.qteProgrammer;
+                const qteTotalDejaProgramme = (commande.programmations?.filter((pr) => pr.id != id) || [])
+                    .reduce((total, c) => total + c.qteProgrammer, 0);
 
-            // celle de la commande
-            const qteTotalCommande = commande?.commandeDetails?.
-                reduce((total, detail) => (total + detail.qteCommande), 0)
+                //celle programmée & celle entrante
+                const qteTotalProgrammer = qteTotalDejaProgramme + programmationData.qteProgrammer;
 
-            console.log("qteTotalDejaProgramme :", qteTotalDejaProgramme)
-            console.log("qteTotalProgrammer :", qteTotalProgrammer)
-            console.log("qteTotalCommande :", qteTotalCommande)
+                // celle de la commande
+                const qteTotalCommande = commande?.commandeDetails?.
+                    reduce((total, detail) => (total + detail.qteCommande), 0)
 
-            if (qteTotalProgrammer > qteTotalCommande) {
-                throw { errorStatus: 400, payLoad: { error: `Attention! à l'ajout de cette quantité (${resultProgrammation.data?.qteProgrammer}), la quantité totale (${qteTotalProgrammer}) programmée dépasserait celle commandée ${qteTotalCommande}` } }
+                console.log("qteTotalDejaProgramme :", qteTotalDejaProgramme)
+                console.log("qteTotalProgrammer :", qteTotalProgrammer)
+                console.log("qteTotalCommande :", qteTotalCommande)
+
+                if (qteTotalProgrammer > qteTotalCommande) {
+                    throw { errorStatus: 400, payLoad: { error: `Attention! à l'ajout de cette quantité (${programmationData.qteProgrammer}), la quantité totale (${qteTotalProgrammer}) programmée dépasserait celle commandée ${qteTotalCommande}` } }
+                }
             }
 
-            // insertion de la programmation
+            // mise à jour des seuls champs transmis
             const newProgrammation = await tx.programmation.update({
                 where: { id: parseInt(id), deletedAt: null },
-                data: {
-                    ...resultProgrammation.data,
-                    createdById: user?.id,
-                },
+                data: resultProgrammation.data,
             });
 
             console.log("Programmation modifiée avec succès!")
@@ -599,6 +611,43 @@ const annulerProgrammation = async (req, res) => {
         })
         console.log("Programmation annulée avec succès!")
         res.status(200).json({ message: 'Programmation validée avec succès!' });
+    } catch (error) {
+        console.error('Failed to delete programmation:', error);
+        res.status(error.errorStatus).json(error.payLoad);
+    }
+};
+
+// cloturer une programmation
+const closeProgrammation = async (req, res) => {
+    console.log("Début de cloture du programme :", req.params)
+    try {
+        const { id } = req.params;
+        await prisma.$transaction(async (tx) => {
+
+            let programmationFound = await tx.programmation.findUnique({
+                where: { id: parseInt(id), deletedAt: null },
+            });
+
+            if (!programmationFound) {
+                throw { errorStatus: 404, payLoad: { error: 'Programmation non trouvée' } }
+            }
+
+            if (programmationFound.closed) {//annulée
+                throw { errorStatus: 400, payLoad: { error: "Cette programmation est déjà clôturée" } }
+            }
+
+            // validation de la programmation de la base de données et log du résultat
+            const updatedProgrammation = await tx.programmation.update({
+                where: { deletedAt: null, id: parseInt(id) },
+                data: {
+                    closed: true,//cloturée
+                }
+            });
+
+            return updatedProgrammation
+        })
+        console.log("Programmation clôturée avec succès!")
+        res.status(200).json({ message: 'Programmation clôturée avec succès!' });
     } catch (error) {
         console.error('Failed to delete programmation:', error);
         res.status(error.errorStatus).json(error.payLoad);
@@ -821,6 +870,11 @@ const livraisonProgrammation = async (req, res) => {
     const { programId, dateLivraison, newBl, livraisonComment } = req.body
     const qteLivre = Number(req.body.qteLivre) // ✅ conversion unique en haut
 
+    const program = await prisma.programmation.findFirst({
+        where: { id: parseInt(programId), deletedAt: null },
+    });
+
+    const zone = await prisma.zone.findFirst({ where: { id: program.zoneId } });
     try {
         const preuveCheck = validatePreuveFile(req.file, { required: false });
         if (!preuveCheck.ok) {
@@ -828,9 +882,6 @@ const livraisonProgrammation = async (req, res) => {
         }
 
         const result = await prisma.$transaction(async (tx) => {
-            let program = await tx.programmation.findFirst({
-                where: { id: parseInt(programId), deletedAt: null },
-            });
 
             if (!program) {
                 throw { errorStatus: 404, payLoad: { error: 'Cette programmation n\'existe pas' } }
@@ -863,7 +914,7 @@ const livraisonProgrammation = async (req, res) => {
                 data: {
                     dateLivraison: new Date(dateLivraison),
                     newBl,
-                    livraisonComment: `${program?.livraisonComment || ''} | ${`${livraisonComment?? `Livraison :` } - Qte : ${qteLivre}`}`,
+                    livraisonComment: `${program?.livraisonComment || ''} <<< ${`${livraisonComment ?? `Livraison :`} - Qte : ${qteLivre} dans la zone ${zone.name} par ${user?.fullname} le ${new Date().toLocaleString()}`} >>>`,
                     statutId,
                     qteLivre: totalQteLivre,
                     preuve: req.file?.filename,
@@ -923,6 +974,7 @@ const transferProgrammation = async (req, res) => {
                 data: {
                     zoneId: zoneDest,
                     transfert: true,
+                    closed: false,//desactiver la cloture
                     transferts: {
                         create: {
                             zoneSourceId: program?.zoneId,
@@ -959,5 +1011,6 @@ export {
     printProgrammations,
     actualiseProgrammation,
     livraisonProgrammation,
-    transferProgrammation
+    transferProgrammation,
+    closeProgrammation
 };

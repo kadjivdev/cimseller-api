@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProgrammations, livraisonProgrammation, actualiseProgrammation, getValidatedProgrammations, getPdfProgrammations, retrieveProgrammation, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation, printProgrammations, transferProgrammation, annulerProgrammation } from '../../../controllers/programmation/programmationController.js';
+import { getProgrammations, livraisonProgrammation, actualiseProgrammation, getValidatedProgrammations, getPdfProgrammations, retrieveProgrammation, createProgrammation, updateProgrammation, validateProgrammation, deleteProgrammation, printProgrammations, transferProgrammation, annulerProgrammation, closeProgrammation } from '../../../controllers/programmation/programmationController.js';
 import jwtAuth from '../../../middlewares/jwtAuth.js';
 import upload from '../../../middlewares/multer.js';
 
@@ -40,6 +40,9 @@ router.route("/transfert")
 
 router
     .post("/annuler", jwtAuth, annulerProgrammation);
+
+router
+    .post("/cloturer/:id", jwtAuth, closeProgrammation);
 
 router.route("/:id")
     .get(jwtAuth, retrieveProgrammation)

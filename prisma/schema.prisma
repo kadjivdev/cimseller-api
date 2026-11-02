@@ -250,6 +250,7 @@ model Programmation {
   preuve            String?
   imprimer          Boolean                   @default(false)
   oldImprimer       Boolean                   @default(false)
+  closed            Boolean                   @default(false)
   transfert         Boolean                   @default(false)
 
   deletedAt         DateTime?

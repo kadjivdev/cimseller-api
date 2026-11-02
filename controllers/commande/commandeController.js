@@ -156,7 +156,6 @@ const retrieveCommande = async (req, res) => {
     let { id } = req.params;
     const user = req.user?.user;
 
-
     try {
         const commandeFound = await prisma.commande.findUnique({
             where: {
