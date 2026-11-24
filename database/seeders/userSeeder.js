@@ -255,8 +255,4 @@ const userSeeders = async () => {
     console.log('Users seeded successfully.');
 };
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-    await userSeeders();
-}
-
 export default userSeeders;
