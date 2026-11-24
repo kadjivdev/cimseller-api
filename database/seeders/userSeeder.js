@@ -253,4 +253,6 @@ const userSeeders = async () => {
     console.log('Users seeded successfully.');
 };
 
+userSeeders()
+
 export default userSeeders;
