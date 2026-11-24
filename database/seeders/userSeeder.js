@@ -1,5 +1,7 @@
 import prisma from '../../config/prisma.js';
 import bcrypt from 'bcrypt'
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const role = await prisma.role.findFirst({
     where: { deletedAt: null }
@@ -253,6 +255,8 @@ const userSeeders = async () => {
     console.log('Users seeded successfully.');
 };
 
-userSeeders()
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+    await userSeeders();
+}
 
 export default userSeeders;
